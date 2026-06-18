@@ -844,53 +844,68 @@ function renderVendors() {
 }
 
 // ── PAYMENT MODAL ──
-function openPayModal(prefillVendorId = null) {
-  editingId = null;
-  document.getElementById('modal-title').textContent = 'Make Payment';
-  const vOptions = vendors.map(v => `<option value="${v.id}" ${v.id === prefillVendorId ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+function openPayModal(prefillVendorId = null, prefillPayment = null) {
+  // Set editingId BEFORE building DOM so Save knows whether to INSERT or UPDATE
+  editingId = prefillPayment ? prefillPayment.id : null;
+  document.getElementById('modal-title').textContent = prefillPayment ? 'Edit Payment' : 'Make Payment';
+  const vOptions = vendors.map(v => `<option value="${v.id}" ${v.id === (prefillPayment?.vendor_id || prefillVendorId) ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
   const today = todayStr();
+  const p = prefillPayment; // shorthand
+  // Determine pre-fill values (fall back to defaults for new entry)
+  const payDateVal  = p?.payment_date  || today;
+  const invDateVal  = p?.invoice_date  || today;
+  const amtDisplay  = p ? fmtMoney(p.amount) : 'Tap to enter';
+  const amtVal      = p?.amount || '0';
+  const paidByOwner = !p || p.paid_by === 'owner';
+  const isDuePaid   = !p || !p.is_due;   // true = paid, false = due
+  const method      = p?.method || 'Check';
+
   document.getElementById('modal-body').innerHTML = `
     <div class="field"><div class="field-lbl">Payee (from Vendors)</div>
       <select class="field-input" id="fp-vendor"><option value="">— Select Vendor / Sub —</option>${vOptions}</select></div>
-    <div class="field"><div class="field-lbl">Or Quick Name (if not in list)</div><input class="field-input" id="fp-payee" placeholder="Payee name"></div>
+    <div class="field"><div class="field-lbl">Or Quick Name (if not in list)</div>
+      <input class="field-input" id="fp-payee" value="${esc(p?.payee_name||'')}" placeholder="Payee name"></div>
     <div class="field"><div class="field-lbl">Amount ($)</div>
-      <div class="field-input tap-to-edit" id="fp-amount-disp" onclick="openKP('fp-amount-disp','fp-amount-val')">Tap to enter</div>
-      <input type="hidden" id="fp-amount-val" value="0">
+      <div class="field-input tap-to-edit" id="fp-amount-disp" onclick="openKP('fp-amount-disp','fp-amount-val')">${amtDisplay}</div>
+      <input type="hidden" id="fp-amount-val" value="${amtVal}">
       <div id="kp-wrap" class="hidden"></div></div>
     <div class="field"><div class="field-lbl">Paid By</div>
       <div class="seg">
-        <div class="seg-opt on owner" onclick="setSeg(this,'fp-paid-by','owner')">Owner</div>
-        <div class="seg-opt contractor" onclick="setSeg(this,'fp-paid-by','contractor')">Contractor</div>
+        <div class="seg-opt ${paidByOwner ? 'on owner' : ''}" onclick="setSeg(this,'fp-paid-by','owner')">Owner</div>
+        <div class="seg-opt ${!paidByOwner ? 'on contractor' : ''}" onclick="setSeg(this,'fp-paid-by','contractor')">Contractor</div>
       </div>
-      <input type="hidden" id="fp-paid-by" value="owner"></div>
-    <div class="field"><div class="field-lbl">Bill Due (not yet paid)?</div>
+      <input type="hidden" id="fp-paid-by" value="${paidByOwner ? 'owner' : 'contractor'}"></div>
+    <div class="field"><div class="field-lbl">Status</div>
       <div class="seg">
-        <div class="seg-opt" onclick="setSeg(this,'fp-is-due','false')">No — Paid</div>
-        <div class="seg-opt on" onclick="setSeg(this,'fp-is-due','true')">Yes — Due</div>
+        <div class="seg-opt ${isDuePaid ? 'on' : ''}" onclick="setSeg(this,'fp-is-due','false')">Paid</div>
+        <div class="seg-opt ${!isDuePaid ? 'on' : ''}" onclick="setSeg(this,'fp-is-due','true')">Bill Due</div>
       </div>
-      <input type="hidden" id="fp-is-due" value="false"></div>
+      <input type="hidden" id="fp-is-due" value="${isDuePaid ? 'false' : 'true'}"></div>
     <div class="field-row2">
       <div class="field"><div class="field-lbl">Payment Date</div>
-        <div class="field-input" id="fp-paydate-disp" onclick="openCal('fp-paydate-disp','fp-paydate-val')">${fmtDateShort(today)}</div>
-        <input type="hidden" id="fp-paydate-val" value="${today}">
+        <div class="field-input" id="fp-paydate-disp" onclick="openCal('fp-paydate-disp','fp-paydate-val')">${fmtDateShort(payDateVal)}</div>
+        <input type="hidden" id="fp-paydate-val" value="${payDateVal}">
         <div id="cal-fp-paydate-disp" class="cal-wrap hidden"></div></div>
       <div class="field"><div class="field-lbl">Invoice Date</div>
-        <div class="field-input" id="fp-invdate-disp" onclick="openCal('fp-invdate-disp','fp-invdate-val')">${fmtDateShort(today)}</div>
-        <input type="hidden" id="fp-invdate-val" value="${today}">
+        <div class="field-input" id="fp-invdate-disp" onclick="openCal('fp-invdate-disp','fp-invdate-val')">${fmtDateShort(invDateVal)}</div>
+        <input type="hidden" id="fp-invdate-val" value="${invDateVal}">
         <div id="cal-fp-invdate-disp" class="cal-wrap hidden"></div></div>
     </div>
-    <div class="field"><div class="field-lbl">Invoice Number</div><input class="field-input" id="fp-inv" placeholder="e.g. PP-2024"></div>
+    <div class="field"><div class="field-lbl">Invoice Number</div>
+      <input class="field-input" id="fp-inv" value="${esc(p?.invoice_number||'')}" placeholder="e.g. PP-2024"></div>
     <div class="field"><div class="field-lbl">Payment Method</div>
       <div class="seg">
-        <div class="seg-opt on" onclick="setSeg(this,'fp-method','Check')">Check</div>
-        <div class="seg-opt" onclick="setSeg(this,'fp-method','ACH')">ACH</div>
-        <div class="seg-opt" onclick="setSeg(this,'fp-method','CC')">CC</div>
-        <div class="seg-opt" onclick="setSeg(this,'fp-method','Cash')">Cash</div>
+        <div class="seg-opt ${method==='Check'?'on':''}" onclick="setSeg(this,'fp-method','Check')">Check</div>
+        <div class="seg-opt ${method==='ACH'?'on':''}" onclick="setSeg(this,'fp-method','ACH')">ACH</div>
+        <div class="seg-opt ${method==='CC'?'on':''}" onclick="setSeg(this,'fp-method','CC')">CC</div>
+        <div class="seg-opt ${method==='Cash'?'on':''}" onclick="setSeg(this,'fp-method','Cash')">Cash</div>
       </div>
-      <input type="hidden" id="fp-method" value="Check"></div>
-    <div class="field"><div class="field-lbl">Note</div><textarea class="field-input" id="fp-note" placeholder="Quick note about this payment…"></textarea></div>
-    <button class="btn-save" onclick="savePayment()">Save Payment</button>
+      <input type="hidden" id="fp-method" value="${method}"></div>
+    <div class="field"><div class="field-lbl">Note</div>
+      <textarea class="field-input" id="fp-note" placeholder="Quick note about this payment…">${esc(p?.note||'')}</textarea></div>
+    <button class="btn-save" onclick="savePayment()">${prefillPayment ? 'Update Payment' : 'Save Payment'}</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+
   openModal();
 }
 
@@ -1043,34 +1058,13 @@ function openPayPanel(id) {
       </div>
     </div>` : ''}
     <div class="panel-actions">
-      <button class="panel-edit-btn" onclick="editPayment('${id}')">&#9998; Edit</button>
+      <button class="panel-edit-btn" onclick="closePanel();openPayModal(null,payments.find(x=>x.id==='${id}'))">&#9998; Edit</button>
       <button class="panel-del-btn" onclick="deleteRecord('payments','${id}')">Delete</button>
     </div>`;
   openPanel();
 }
 
-async function editPayment(id) {
-  closePanel();
-  const p = payments.find(x => x.id === id);
-  if (!p) return;
-  editingId = id;
-  openPayModal();
-  await new Promise(r => setTimeout(r, 50));
-  const vOpts = Array.from(document.getElementById('fp-vendor').options);
-  vOpts.forEach(o => { if (o.value === p.vendor_id) o.selected = true; });
-  setInputVal('fp-payee', p.payee_name || '');
-  document.getElementById('fp-amount-disp').textContent = fmtMoney(p.amount);
-  document.getElementById('fp-amount-val').value = p.amount || '0';
-  document.getElementById('fp-paid-by').value = p.paid_by || 'owner';
-  document.getElementById('fp-is-due').value = p.is_due ? 'true' : 'false';
-  document.getElementById('fp-paydate-val').value = p.payment_date || todayStr();
-  document.getElementById('fp-paydate-disp').textContent = fmtDateShort(p.payment_date);
-  document.getElementById('fp-invdate-val').value = p.invoice_date || todayStr();
-  document.getElementById('fp-invdate-disp').textContent = fmtDateShort(p.invoice_date);
-  setInputVal('fp-inv', p.invoice_number || '');
-  document.getElementById('fp-method').value = p.method || 'Check';
-  setInputVal('fp-note', p.note || '');
-}
+
 
 function openVendorPanel(id) {
   const v2 = vendors.find(x => x.id === id);
