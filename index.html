@@ -310,7 +310,7 @@ textarea.field-input{resize:vertical;min-height:72px;}
         </div>
       </div>
     </div>
-    <div class="tb-proj-name" id="tb-proj-name">Loading…</div>
+    <div class="tb-proj-name" id="tb-proj-name" onclick="openEditProject()" style="cursor:pointer;" title="Tap to edit project">Loading… <span style="font-size:12px;opacity:0.55;">✎</span></div>
     <div class="tb-proj-sub" id="tb-proj-sub"></div>
     <div class="tb-dots" id="tb-dots"></div>
   </div>
@@ -418,11 +418,13 @@ textarea.field-input{resize:vertical;min-height:72px;}
         <button class="btn-save" style="margin-top:10px;" onclick="changePin()">Update PIN</button>
       </div>
       <div class="card">
-        <div class="card-title">Project Budget</div>
-        <div class="field"><div class="field-lbl">Budget for current project ($)</div>
-          <input class="field-input" id="budget-input" type="number" placeholder="0.00">
-        </div>
-        <button class="btn-save" style="margin-top:10px;" onclick="saveBudget()">Save Budget</button>
+        <div class="card-title">Current Project Details</div>
+        <div class="panel-row"><div class="panel-lbl">Project</div><div class="panel-val" id="set-proj-name" style="font-weight:600;">—</div></div>
+        <div class="panel-row"><div class="panel-lbl">Owner</div><div class="panel-val" id="set-proj-owner">—</div></div>
+        <div class="panel-row"><div class="panel-lbl">Contractor</div><div class="panel-val" id="set-proj-contractor">—</div></div>
+        <div class="panel-row"><div class="panel-lbl">Start Date</div><div class="panel-val" id="set-proj-start">—</div></div>
+        <div class="panel-row"><div class="panel-lbl">Budget</div><div class="panel-val" id="set-proj-budget">—</div></div>
+        <button class="btn-save" style="margin-top:6px;" onclick="openEditProject()">&#9998; Edit Project Details</button>
       </div>
       <div class="card">
         <div class="card-title">About</div>
@@ -592,12 +594,26 @@ async function loadProjects() {
 function renderTopBar() {
   const p = projects[currentProjectIdx];
   if (!p) return;
-  document.getElementById('tb-proj-name').textContent = p.name;
-  document.getElementById('tb-proj-sub').textContent = (p.description || '') + (p.started_at ? ' · Started ' + fmtDateShort(p.started_at) : '');
-  const bi = document.getElementById('budget-input');
-  if (bi) bi.value = p.budget || '';
+  document.getElementById('tb-proj-name').innerHTML = esc(p.name) + ' <span style="font-size:12px;opacity:0.5;">✎</span>';
+  let sub = p.description || '';
+  if (p.owner_name) sub += (sub ? ' · ' : '') + 'Owner: ' + p.owner_name;
+  if (p.started_at) sub += ' · Started ' + fmtDateShort(p.started_at);
+  document.getElementById('tb-proj-sub').textContent = sub;
   const dots = document.getElementById('tb-dots');
   dots.innerHTML = projects.map((_, i) => `<div class="tb-dot ${i === currentProjectIdx ? 'on' : ''}"></div>`).join('');
+  // keep settings panel in sync
+  const sn = document.getElementById('set-proj-name');
+  if (sn) {
+    sn.textContent = p.name || '—';
+    const so = document.getElementById('set-proj-owner');
+    if (so) so.textContent = p.owner_name || '—';
+    const sc = document.getElementById('set-proj-contractor');
+    if (sc) sc.textContent = p.contractor_name || '—';
+    const ss = document.getElementById('set-proj-start');
+    if (ss) ss.textContent = p.started_at ? fmtDateShort(p.started_at) : '—';
+    const sb2 = document.getElementById('set-proj-budget');
+    if (sb2) sb2.textContent = fmtMoney(p.budget || 0);
+  }
 }
 
 function cycleProject(dir) {
@@ -607,36 +623,89 @@ function cycleProject(dir) {
   loadAll();
 }
 
+function buildProjectForm(p) {
+  const today = todayStr();
+  const startVal  = p?.started_at  || today;
+  const startDisp = fmtDateShort(startVal);
+  return `
+    <div class="field"><div class="field-lbl">Project Name / Address</div>
+      <input class="field-input" id="fp-name" value="${esc(p?.name||'')}" placeholder="e.g. 1514 Voorhees Ave."></div>
+    <div class="field"><div class="field-lbl">Description</div>
+      <input class="field-input" id="fp-desc" value="${esc(p?.description||'')}" placeholder="e.g. New Home Build"></div>
+    <div class="f2">
+      <div class="field"><div class="field-lbl">Owner Name</div>
+        <input class="field-input" id="fp-owner" value="${esc(p?.owner_name||'')}" placeholder="Full name"></div>
+      <div class="field"><div class="field-lbl">Contractor Name</div>
+        <input class="field-input" id="fp-contractor" value="${esc(p?.contractor_name||'')}" placeholder="Full name"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><div class="field-lbl">Start Date</div>
+        <div class="pop-field">
+          <div class="pop-trigger" id="pt-proj-start" onclick="popToggle('pop-proj-start','pt-proj-start')">
+            <span id="pv-proj-start">${startDisp}</span>
+            <span class="pt-icon">&#128197;</span>
+          </div>
+          <div class="popup-box" id="pop-proj-start"></div>
+          <input type="hidden" id="ph-proj-start" value="${startVal}">
+        </div>
+      </div>
+      <div class="field"><div class="field-lbl">Budget ($)</div>
+        <input class="field-input" id="fp-budget" type="number" value="${p?.budget||''}" placeholder="0.00"></div>
+    </div>`;
+}
+
 async function openAddProject() {
   editingId = null;
-  document.getElementById('modal-title').textContent = 'Add Project';
-  document.getElementById('modal-body').innerHTML = `
-    <div class="field"><div class="field-lbl">Project Name</div><input class="field-input" id="fp-name" placeholder="e.g. 1514 Voorhees Ave."></div>
-    <div class="field"><div class="field-lbl">Description</div><input class="field-input" id="fp-desc" placeholder="e.g. New Home Build"></div>
-    <div class="field"><div class="field-lbl">Budget ($)</div><input class="field-input" id="fp-budget" type="number" placeholder="0.00"></div>
-    <button class="btn-save" onclick="saveProject()">Add Project</button>
+  document.getElementById('modal-title').textContent = 'New Project';
+  document.getElementById('modal-body').innerHTML = buildProjectForm(null) + `
+    <button class="btn-save" onclick="saveProject(false)">Add Project</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+  initCalPop('pop-proj-start', todayStr(), 'pv-proj-start', 'ph-proj-start', 'pt-proj-start');
   openModal();
 }
 
-async function saveProject() {
-  const name = gv('fp-name'), desc = gv('fp-desc'), budget = parseFloat(gv('fp-budget')) || 0;
+async function openEditProject() {
+  const p = projects[currentProjectIdx];
+  if (!p) { toast('No project selected'); return; }
+  editingId = p.id;
+  document.getElementById('modal-title').textContent = 'Edit Project';
+  document.getElementById('modal-body').innerHTML = buildProjectForm(p) + `
+    <button class="btn-save" onclick="saveProject(true)">Save Changes</button>
+    <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+  initCalPop('pop-proj-start', p.started_at || todayStr(), 'pv-proj-start', 'ph-proj-start', 'pt-proj-start');
+  openModal();
+}
+
+async function saveProject(isEdit) {
+  const name        = gv('fp-name').trim();
+  const desc        = gv('fp-desc').trim();
+  const ownerName   = gv('fp-owner').trim();
+  const contractorName = gv('fp-contractor').trim();
+  const startedAt   = gv('ph-proj-start') || todayStr();
+  const budget      = parseFloat(gv('fp-budget')) || 0;
   if (!name) { toast('Project name required'); return; }
-  const { data, error } = await sb.from('projects').insert([{ name, description: desc, budget, started_at: todayStr() }]).select();
-  if (error) { toast('Save failed: ' + error.message); return; }
-  if (data && data.length) { projects.push(data[0]); currentProjectIdx = projects.length - 1; renderTopBar(); await loadAll(); }
-  closeModal(); toast('Project added');
+  const row = { name, description: desc, owner_name: ownerName, contractor_name: contractorName, started_at: startedAt, budget };
+  if (isEdit && editingId) {
+    const { error } = await sb.from('projects').update(row).eq('id', editingId);
+    if (error) { toast('Update failed: ' + error.message); return; }
+    const idx = projects.findIndex(p => p.id === editingId);
+    if (idx >= 0) projects[idx] = { ...projects[idx], ...row };
+    renderTopBar(); renderStats();
+    closeModal(); toast('Project updated'); editingId = null;
+  } else {
+    const { data, error } = await sb.from('projects').insert([row]).select();
+    if (error) { toast('Save failed: ' + error.message); return; }
+    if (data && data.length) { projects.push(data[0]); currentProjectIdx = projects.length - 1; renderTopBar(); await loadAll(); }
+    closeModal(); toast('Project added');
+  }
 }
 
 async function saveBudget() {
-  const budget = parseFloat(document.getElementById('budget-input').value) || 0;
-  const p = projects[currentProjectIdx];
-  if (!p) return;
-  await sb.from('projects').update({ budget }).eq('id', p.id);
-  p.budget = budget;
-  renderTopBar();
-  renderStats();
-  toast('Budget saved');
+  const p = projects[currentProjectIdx]; if (!p) return;
+  const budget = parseFloat(document.getElementById('budget-input')?.value) || 0;
+  const { error } = await sb.from('projects').update({ budget }).eq('id', p.id);
+  if (error) { toast('Save failed: ' + error.message); return; }
+  p.budget = budget; renderTopBar(); renderStats(); toast('Budget saved');
 }
 
 // ── LOAD ALL DATA ──
@@ -694,11 +763,18 @@ function txnRow(p) {
   const icon = p.is_due ? 'due' : (p.paid_by === 'owner' ? 'owner' : 'contractor');
   const initials = vendorName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
   const badge = p.is_due ? '<span class="badge due">Due</span>' : (p.paid_by === 'owner' ? '<span class="badge owner">Owner</span>' : '<span class="badge contractor">Contractor</span>');
+  // Audit stamp: compact O/C circle + time entered
+  const auditRole = p.entered_by_role || '';
+  const auditBadge = auditRole ? entryBadge(auditRole) : '';
+  const auditTime = p.entered_at
+    ? `<span style="font-size:10px;color:var(--muted);"> ${fmtTimestamp(p.entered_at)}</span>`
+    : '';
   return `<div class="txn-item" onclick="openPayPanel('${p.id}')">
     <div class="txn-icon ${icon}">${initials}</div>
     <div class="txn-meta">
       <div class="txn-name">${esc(vendorName)}</div>
       <div class="txn-detail">${fmtDateShort(p.payment_date)}${p.invoice_number ? ' · Inv #' + esc(p.invoice_number) : ''}${p.method ? ' · ' + esc(p.method) : ''}</div>
+      ${p.entered_at ? `<div class="txn-note" style="font-style:normal;display:flex;align-items:center;gap:4px;">${auditBadge}${auditTime}</div>` : ''}
       ${p.note ? `<div class="txn-note">${esc(p.note)}</div>` : ''}
     </div>
     <div class="txn-right"><div class="txn-amt">${fmtMoney(p.amount)}</div>${badge}</div>
@@ -836,10 +912,13 @@ async function savePayment() {
   const method = v('fp-method') || 'Check';
   const note = v('fp-note');
   if (!vendorId && !payeeName) { toast('Select a vendor or enter a payee name'); return; }
-  const row = { project_id: pid, vendor_id: vendorId, payee_name: payeeName, amount, paid_by: paidBy, is_due: isDue, payment_date: payDate, invoice_date: invDate, invoice_number: inv, method, note };
+  // On insert: capture who entered it and when (UTC → display in local time)
+  const baseRow = { project_id: pid, vendor_id: vendorId, payee_name: payeeName, amount, paid_by: paidBy, is_due: isDue, payment_date: payDate, invoice_date: invDate, invoice_number: inv, method, note };
+  const insertRow = { ...baseRow, entered_by_role: currentRole || 'owner', entered_at: new Date().toISOString() };
+  // On update: preserve original stamp — only update data fields
   const { error } = editingId
-    ? await sb.from('payments').update(row).eq('id', editingId)
-    : await sb.from('payments').insert([row]);
+    ? await sb.from('payments').update(baseRow).eq('id', editingId)
+    : await sb.from('payments').insert([insertRow]);
   if (error) { toast('Save failed: ' + error.message); return; }
   toast(editingId ? 'Payment updated' : 'Payment saved');
   closeModal(); await loadAll();
@@ -936,6 +1015,14 @@ function openPayPanel(id) {
     <div class="panel-row"><div class="panel-lbl">Invoice #</div><div class="panel-val">${esc(p.invoice_number || '—')}</div></div>
     <div class="panel-row"><div class="panel-lbl">Method</div><div class="panel-val">${esc(p.method || '—')}</div></div>
     ${p.note ? `<div class="panel-row"><div class="panel-lbl">Note</div><div class="panel-note">${esc(p.note)}</div></div>` : ''}
+    ${p.entered_at ? `<div class="panel-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
+      <div class="panel-lbl">Entered By</div>
+      <div class="panel-val" style="display:flex;align-items:center;gap:7px;">
+        ${entryBadge(p.entered_by_role)}
+        <span style="font-size:13px;font-weight:600;">${p.entered_by_role === 'owner' ? 'Owner' : 'Contractor'}</span>
+        <span style="font-size:11px;color:var(--muted);">${fmtTimestamp(p.entered_at)}</span>
+      </div>
+    </div>` : ''}
     <div class="panel-actions">
       <button class="panel-edit-btn" onclick="editPayment('${id}')">&#9998; Edit</button>
       <button class="panel-del-btn" onclick="deleteRecord('payments','${id}')">Delete</button>
@@ -1184,15 +1271,29 @@ async function exportPDF() {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const p = projects[currentProjectIdx];
   const now = new Date().toLocaleDateString('en-US');
+  // ── Cover header ──
   doc.setFillColor(11, 31, 58);
-  doc.rect(0, 0, 216, 30, 'F');
+  doc.rect(0, 0, 216, 42, 'F');
   doc.setTextColor(245, 166, 35);
-  doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('BuildTrack Construction Report', 14, 13);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('BuildTrack — Construction Report', 14, 12);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text(`Project: ${p?.name || ''}   |   Generated: ${now}`, 14, 22);
+  doc.text(`Project:  ${p?.name || '—'}`, 14, 21);
+  doc.text(`Address:  ${p?.description || p?.address || '—'}`, 14, 27);
+  doc.setTextColor(200, 200, 200);
+  doc.text(`Generated: ${now}`, 14, 38);
+  // ── Project info block ──
   doc.setTextColor(0, 0, 0);
-  let y = 36;
+  let y = 50;
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text('Project Information', 14, y); y += 6;
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(`Owner:       ${p?.owner_name || '—'}`, 14, y); y += 5;
+  doc.text(`Contractor:  ${p?.contractor_name || '—'}`, 14, y); y += 5;
+  doc.text(`Start Date:  ${p?.started_at ? fmtDateShort(p.started_at) : '—'}`, 14, y); y += 5;
+  doc.text(`Budget:      ${fmtMoney(p?.budget || 0)}`, 14, y); y += 9;
+  // ── Divider ──
+  doc.setDrawColor(200, 200, 200); doc.line(14, y, 202, y); y += 6;
   const paid = payments.filter(x => !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
   const due = payments.filter(x => x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
   const ownerPaid = payments.filter(x => x.paid_by === 'owner' && !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
@@ -1201,13 +1302,15 @@ async function exportPDF() {
   doc.text('Financial Summary', 14, y); y += 7;
   doc.setFontSize(10); doc.setFont('helvetica','normal');
   doc.text(`Budget: ${fmtMoney(p?.budget||0)}   |   Total Paid: ${fmtMoney(paid)}   |   Bills Due: ${fmtMoney(due)}`, 14, y); y += 5;
-  doc.text(`Owner Paid: ${fmtMoney(ownerPaid)}   |   Contractor Paid: ${fmtMoney(contrPaid)}`, 14, y); y += 10;
+  const ownerLabel = p?.owner_name ? p.owner_name : 'Owner';
+  const contrLabel = p?.contractor_name ? p.contractor_name : 'Contractor';
+  doc.text(`${ownerLabel} Paid: ${fmtMoney(ownerPaid)}   |   ${contrLabel} Paid: ${fmtMoney(contrPaid)}`, 14, y); y += 10;
   if (payments.length) {
     doc.setFont('helvetica','bold'); doc.setFontSize(11);
     doc.text('Payment Ledger', 14, y); y += 4;
     doc.autoTable({
       startY: y,
-      head: [['Date','Payee','Amount','Paid By','Method','Invoice #','Note']],
+      head: [['Date','Payee','Amount','Paid By','Method','Invoice #','By','Entered','Note']],
       body: payments.map(x => [
         fmtDateShort(x.payment_date),
         vendors.find(v => v.id === x.vendor_id)?.name || x.payee_name || '—',
@@ -1215,7 +1318,9 @@ async function exportPDF() {
         x.is_due ? 'DUE' : (x.paid_by || '—'),
         x.method || '—',
         x.invoice_number || '—',
-        (x.note || '').slice(0,40)
+        x.entered_by_role === 'owner' ? 'O' : (x.entered_by_role === 'contractor' ? 'C' : '—'),
+        x.entered_at ? fmtTimestamp(x.entered_at) : '—',
+        (x.note || '').slice(0,35)
       ]),
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [11, 31, 58], textColor: [245, 166, 35], fontStyle: 'bold' },
@@ -1286,6 +1391,19 @@ function gv(id) { return v(id); }
 function setInputVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtMoney(n) { return '$' + (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtTimestamp(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const opts = { timeZone: 'America/Los_Angeles', month:'short', day:'numeric',
+                 year:'numeric', hour:'numeric', minute:'2-digit', hour12:true };
+  return d.toLocaleString('en-US', opts) + ' PT';
+}
+function entryBadge(role) {
+  // 'O' = owner, 'C' = contractor — compact audit indicator
+  if (!role) return '';
+  const isOwner = role === 'owner';
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:800;background:${isOwner ? 'var(--blue-lt)' : 'var(--amber-lt)'};color:${isOwner ? 'var(--blue)' : 'var(--amber)'};flex-shrink:0;border:1px solid ${isOwner ? 'var(--blue)' : 'var(--amber)'};opacity:0.9;">${isOwner ? 'O' : 'C'}</span>`;
+}
 function fmt$(s) { const n = parseFloat(s); return isNaN(n) ? s : n.toLocaleString('en-US', { minimumFractionDigits: s.endsWith('.') ? 0 : (s.split('.')[1]||'').length, maximumFractionDigits: 2 }); }
 function fmtDateShort(s) { if (!s) return '—'; const d = new Date(s + (s.length === 10 ? 'T12:00:00' : '')); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
 function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
