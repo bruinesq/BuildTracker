@@ -35,6 +35,13 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
   --green-lt:#E6F7EE;
   --blue:#1E5FA5;
   --blue-lt:#E8F0FB;
+  /* ── OWNER vs CONTRACTOR — high-contrast solid identity colors ── */
+  --owner:#1D4ED8;
+  --owner-lt:#DBE6FB;
+  --owner-text:#FFFFFF;
+  --contractor:#C2410C;
+  --contractor-lt:#FBE3D3;
+  --contractor-text:#FFFFFF;
   --radius:10px;
   --radius-sm:7px;
 }
@@ -89,8 +96,8 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .txn-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
 .txn-item:last-child{border-bottom:none;}
 .txn-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;font-weight:700;}
-.txn-icon.owner{background:var(--blue-lt);color:var(--blue);}
-.txn-icon.contractor{background:var(--amber-lt);color:var(--amber);}
+.txn-icon.owner{background:var(--owner);color:var(--owner-text);}
+.txn-icon.contractor{background:var(--contractor);color:var(--contractor-text);}
 .txn-icon.due{background:var(--red-lt);color:var(--red);}
 .txn-meta{flex:1;min-width:0;}
 .txn-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -99,8 +106,8 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .txn-right{text-align:right;flex-shrink:0;}
 .txn-amt{font-size:14px;font-weight:700;color:var(--text);}
 .badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-top:3px;}
-.badge.owner{background:var(--blue-lt);color:var(--blue);}
-.badge.contractor{background:var(--amber-lt);color:#7A4A00;}
+.badge.owner{background:var(--owner);color:var(--owner-text);}
+.badge.contractor{background:var(--contractor);color:var(--contractor-text);}
 .badge.due{background:var(--red-lt);color:var(--red);}
 .badge.done{background:var(--green-lt);color:var(--green);}
 .badge.pending{background:#FFF3E0;color:#8B5E00;}
@@ -183,8 +190,8 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .seg{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-sm);padding:3px;border:1px solid var(--border);}
 .seg-opt{flex:1;text-align:center;font-size:12px;font-weight:600;padding:7px 4px;border-radius:6px;color:var(--muted);cursor:pointer;transition:all 0.15s;}
 .seg-opt.on{background:var(--white);color:var(--text);border:1px solid var(--border);}
-.seg-opt.on.owner{color:var(--blue);}
-.seg-opt.on.contractor{color:var(--amber);}
+.seg-opt.on.owner{background:var(--owner);color:var(--owner-text);border-color:var(--owner);}
+.seg-opt.on.contractor{background:var(--contractor);color:var(--contractor-text);border-color:var(--contractor);}
 .btn-save{background:var(--navy);color:var(--gold);border-radius:var(--radius);padding:13px;font-size:16px;font-weight:700;text-align:center;width:100%;margin-top:4px;}
 .btn-cancel-form{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:11px;font-size:14px;font-weight:600;text-align:center;width:100%;margin-top:6px;}
 
@@ -408,8 +415,8 @@ textarea.field-input{resize:vertical;min-height:72px;}
     <div id="page-finance" class="page">
       <div class="pdf-btn" onclick="exportPDF()">&#x21E9; Export Full PDF Report</div>
       <div class="stat-grid">
-        <div class="stat-card blue"><div class="stat-val" id="fin-owner">$0</div><div class="stat-lbl">Owner Paid</div></div>
-        <div class="stat-card amber"><div class="stat-val" id="fin-contractor">$0</div><div class="stat-lbl">Contractor Paid</div></div>
+        <div class="stat-card" style="background:var(--owner-lt);"><div class="stat-val" id="fin-owner" style="color:var(--owner);">$0</div><div class="stat-lbl" style="color:var(--owner);opacity:0.75;">Owner Paid</div></div>
+        <div class="stat-card" style="background:var(--contractor-lt);"><div class="stat-val" id="fin-contractor" style="color:var(--contractor);">$0</div><div class="stat-lbl" style="color:var(--contractor);opacity:0.75;">Contractor Paid</div></div>
       </div>
       <div class="stat-card red" style="margin-bottom:12px;border-radius:var(--radius-sm);padding:11px 13px;">
         <div class="stat-val" id="fin-due">$0</div><div class="stat-lbl">Outstanding Bills</div>
@@ -1352,8 +1359,8 @@ function openVendorPanel(id) {
   const histRows = vPays.map(p => {
     const roleLabel = p.entered_by_role === 'contractor' ? 'C' : 'O';
     const roleClr   = p.entered_by_role === 'contractor'
-      ? 'background:var(--amber-lt);color:var(--amber);'
-      : 'background:var(--blue-lt);color:var(--blue);';
+      ? 'background:var(--contractor);color:#fff;'
+      : 'background:var(--owner);color:#fff;';
     return `<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);">
       <div style="width:26px;height:26px;border-radius:50%;${roleClr}display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${roleLabel}</div>
       <div style="flex:1;min-width:0;">
@@ -1769,9 +1776,11 @@ function fmtTimestamp(iso) {
 }
 function entryBadge(role) {
   // 'O' = owner, 'C' = contractor — compact audit indicator
+  // Solid high-contrast fill: royal blue (Owner) vs burnt orange (Contractor)
   if (!role) return '';
   const isOwner = role === 'owner';
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:800;background:${isOwner ? 'var(--blue-lt)' : 'var(--amber-lt)'};color:${isOwner ? 'var(--blue)' : 'var(--amber)'};flex-shrink:0;border:1px solid ${isOwner ? 'var(--blue)' : 'var(--amber)'};opacity:0.9;">${isOwner ? 'O' : 'C'}</span>`;
+  const bg = isOwner ? 'var(--owner)' : 'var(--contractor)';
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;font-size:10px;font-weight:800;background:${bg};color:#fff;flex-shrink:0;">${isOwner ? 'O' : 'C'}</span>`;
 }
 function fmt$(s) { const n = parseFloat(s); return isNaN(n) ? s : n.toLocaleString('en-US', { minimumFractionDigits: s.endsWith('.') ? 0 : (s.split('.')[1]||'').length, maximumFractionDigits: 2 }); }
 function fmtDateShort(s) { if (!s) return '—'; const d = new Date(s + (s.length === 10 ? 'T12:00:00' : '')); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
