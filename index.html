@@ -113,6 +113,16 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .vendor-name{font-size:13px;font-weight:600;color:var(--text);}
 .vendor-trade{font-size:11px;color:var(--muted);margin-top:1px;}
 .vendor-phone{font-size:11px;color:var(--blue);margin-top:1px;}
+.vendor-right{text-align:right;flex-shrink:0;min-width:70px;}
+.vendor-total{font-size:14px;font-weight:700;color:var(--amber);}
+.vendor-bar-wrap{width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:4px;}
+.vendor-bar{height:3px;border-radius:2px;background:var(--amber);}
+.vendor-paycount{font-size:10px;color:var(--muted);margin-top:2px;}
+.vsort-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;}
+.vsort-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.vsort-btns{display:flex;gap:4px;}
+.vsort-btn{font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);background:var(--white);}
+.vsort-btn.on{background:var(--navy);color:var(--gold);border-color:var(--navy);}
 .vendor-chev{color:var(--muted);font-size:18px;line-height:1;}
 
 /* ── SCHEDULE ── */
@@ -397,7 +407,14 @@ textarea.field-input{resize:vertical;min-height:72px;}
       <div class="card">
         <div class="sec-hdr">
           <div class="sec-hdr-label">Vendors &amp; Subcontractors</div>
-          <div class="sort-btn" onclick="toggleSort('vendors')">&#x21F5; A–Z</div>
+        </div>
+        <div class="vsort-row">
+          <div class="vsort-lbl">Sort by</div>
+          <div class="vsort-btns">
+            <div class="vsort-btn on" id="vsort-az"     onclick="setVendorSort('az')">A–Z</div>
+            <div class="vsort-btn"    id="vsort-total"   onclick="setVendorSort('total')">$ Total</div>
+            <div class="vsort-btn"    id="vsort-recent"  onclick="setVendorSort('recent')">Recent</div>
+          </div>
         </div>
         <div id="vendor-list"><div class="empty-state"><span class="icon">👷</span><p>No vendors yet. Tap Add Vendor below.</p></div></div>
       </div>
@@ -483,7 +500,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let currentUser = null, currentRole = 'owner';
 let projects = [], currentProjectIdx = 0;
 let payments = [], vendors = [], schedEvents = [];
-let sortAsc = false, finFilter = 'all', editingId = null;
+let sortAsc = false, finFilter = 'all', editingId = null, vendorSort = 'az';
 let pinBuffer = '';
 
 // Keypad state (payment modal)
@@ -825,20 +842,59 @@ function renderRecommendation() {
 }
 
 // ── VENDORS ──
+function vendorPayments(vid) {
+  return payments.filter(p => p.vendor_id === vid && !p.is_due);
+}
+function vendorTotal(vid) {
+  return vendorPayments(vid).reduce((s, p) => s + (p.amount || 0), 0);
+}
+function vendorLastDate(vid) {
+  const ps = vendorPayments(vid).map(p => p.payment_date).filter(Boolean).sort().reverse();
+  return ps[0] || null;
+}
+
+function setVendorSort(mode) {
+  vendorSort = mode;
+  ['az','total','recent'].forEach(m => {
+    const el = document.getElementById('vsort-' + m);
+    if (el) el.classList.toggle('on', m === mode);
+  });
+  renderVendors();
+}
+
 function renderVendors() {
   const list = document.getElementById('vendor-list');
   if (!vendors.length) { list.innerHTML = '<div class="empty-state"><span class="icon">👷</span><p>No vendors yet. Tap Add Vendor below.</p></div>'; return; }
-  const sorted = [...vendors].sort((a, b) => a.name.localeCompare(b.name));
+
+  const totals = vendors.map(v => vendorTotal(v.id));
+  const maxTotal = Math.max(...totals, 1);
+
+  let sorted = vendors.map((v, i) => ({ ...v, _total: totals[i], _last: vendorLastDate(v.id), _count: vendorPayments(v.id).length }));
+  if (vendorSort === 'az')     sorted.sort((a, b) => a.name.localeCompare(b.name));
+  if (vendorSort === 'total')  sorted.sort((a, b) => b._total - a._total);
+  if (vendorSort === 'recent') sorted.sort((a, b) => {
+    if (!a._last && !b._last) return 0;
+    if (!a._last) return 1; if (!b._last) return -1;
+    return b._last.localeCompare(a._last);
+  });
+
   list.innerHTML = sorted.map(v => {
     const initials = v.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const barPct   = Math.round(v._total / maxTotal * 100);
+    const totalStr = v._total > 0 ? fmtMoney(v._total) : '—';
+    const cntStr   = v._count === 1 ? '1 payment' : v._count + ' payments';
+    const lastStr  = v._last ? fmtDateShort(v._last) : 'No payments';
     return `<div class="vendor-item" onclick="openVendorPanel('${v.id}')">
       <div class="vendor-avatar">${initials}</div>
       <div class="vendor-info">
         <div class="vendor-name">${esc(v.name)}</div>
-        <div class="vendor-trade">${esc(v.trade || '')}</div>
-        <div class="vendor-phone">${esc(v.phone || '')}</div>
+        <div class="vendor-trade">${esc(v.trade || '')}${v.contact_person ? ' · ' + esc(v.contact_person) : ''}</div>
+        <div class="vendor-phone">${v._count > 0 ? cntStr + ' · last ' + lastStr : esc(v.phone || '')}</div>
       </div>
-      <div class="vendor-chev">&#x203A;</div>
+      <div class="vendor-right">
+        <div class="vendor-total">${totalStr}</div>
+        <div class="vendor-bar-wrap"><div class="vendor-bar" style="width:${barPct}%"></div></div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -965,13 +1021,28 @@ function openVendorModal(prefillId = null) {
   document.getElementById('modal-title').textContent = existing ? 'Edit Vendor' : 'Add Vendor';
   if (existing) editingId = existing.id;
   document.getElementById('modal-body').innerHTML = `
-    <div class="field"><div class="field-lbl">Name</div><input class="field-input" id="fv-name" value="${esc(existing?.name||'')}" placeholder="Company or person name"></div>
-    <div class="field"><div class="field-lbl">Trade / Category</div><input class="field-input" id="fv-trade" value="${esc(existing?.trade||'')}" placeholder="e.g. Plumber, Electrician, Supplier"></div>
-    <div class="field"><div class="field-lbl">Phone</div><input class="field-input" id="fv-phone" type="tel" value="${esc(existing?.phone||'')}" placeholder="(310) 555-0000"></div>
-    <div class="field"><div class="field-lbl">Email</div><input class="field-input" id="fv-email" type="email" value="${esc(existing?.email||'')}" placeholder="contact@company.com"></div>
-    <div class="field"><div class="field-lbl">Address</div><input class="field-input" id="fv-addr" value="${esc(existing?.address||'')}" placeholder="Street, City, State"></div>
-    <div class="field"><div class="field-lbl">License Number</div><input class="field-input" id="fv-lic" value="${esc(existing?.license_number||'')}" placeholder="CA License #"></div>
-    <div class="field"><div class="field-lbl">Note</div><textarea class="field-input" id="fv-note" placeholder="Notes about this vendor…">${esc(existing?.note||'')}</textarea></div>
+    <div class="field"><div class="field-lbl">Company / Vendor Name</div>
+      <input class="field-input" id="fv-name" value="${esc(existing?.name||'')}" placeholder="Company or person name"></div>
+    <div class="f2">
+      <div class="field"><div class="field-lbl">Trade / Category</div>
+        <input class="field-input" id="fv-trade" value="${esc(existing?.trade||'')}" placeholder="Plumber, Electrician…"></div>
+      <div class="field"><div class="field-lbl">Contact Person</div>
+        <input class="field-input" id="fv-contact" value="${esc(existing?.contact_person||'')}" placeholder="First Last"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><div class="field-lbl">Phone</div>
+        <input class="field-input" id="fv-phone" type="tel" value="${esc(existing?.phone||'')}" placeholder="(310) 555-0000"></div>
+      <div class="field"><div class="field-lbl">Email</div>
+        <input class="field-input" id="fv-email" type="email" value="${esc(existing?.email||'')}" placeholder="email@co.com"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><div class="field-lbl">License #</div>
+        <input class="field-input" id="fv-lic" value="${esc(existing?.license_number||'')}" placeholder="CA License #"></div>
+      <div class="field"><div class="field-lbl">Address</div>
+        <input class="field-input" id="fv-addr" value="${esc(existing?.address||'')}" placeholder="City, State"></div>
+    </div>
+    <div class="field"><div class="field-lbl">Note</div>
+      <textarea class="field-input" id="fv-note" placeholder="Notes about this vendor…">${esc(existing?.note||'')}</textarea></div>
     <button class="btn-save" onclick="saveVendor()">Save Vendor</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
   openModal();
@@ -980,7 +1051,7 @@ function openVendorModal(prefillId = null) {
 async function saveVendor() {
   const pid = projects[currentProjectIdx]?.id;
   if (!pid) { toast('No active project'); return; }
-  const row = { project_id: pid, name: gv('fv-name'), trade: gv('fv-trade'), phone: gv('fv-phone'), email: gv('fv-email'), address: gv('fv-addr'), license_number: gv('fv-lic'), note: gv('fv-note') };
+  const row = { project_id: pid, name: gv('fv-name'), trade: gv('fv-trade'), contact_person: gv('fv-contact'), phone: gv('fv-phone'), email: gv('fv-email'), address: gv('fv-addr'), license_number: gv('fv-lic'), note: gv('fv-note') };
   if (!row.name) { toast('Vendor name required'); return; }
   const { error } = editingId
     ? await sb.from('vendors').update(row).eq('id', editingId)
@@ -1070,18 +1141,69 @@ function openVendorPanel(id) {
   const v2 = vendors.find(x => x.id === id);
   if (!v2) return;
   const initials = v2.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+
+  // Compute payment stats for this vendor
+  const vPays  = vendorPayments(id).sort((a, b) => (b.payment_date||'').localeCompare(a.payment_date||''));
+  const total  = vPays.reduce((s, p) => s + (p.amount || 0), 0);
+  const count  = vPays.length;
+  const lastDt = vPays[0]?.payment_date ? fmtDateShort(vPays[0].payment_date) : '—';
+  const avgAmt = count > 0 ? fmtMoney(total / count) : '—';
+
+  // Payment history rows
+  const histRows = vPays.map(p => {
+    const roleLabel = p.entered_by_role === 'contractor' ? 'C' : 'O';
+    const roleClr   = p.entered_by_role === 'contractor'
+      ? 'background:var(--amber-lt);color:var(--amber);'
+      : 'background:var(--blue-lt);color:var(--blue);';
+    return `<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="width:26px;height:26px;border-radius:50%;${roleClr}display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${roleLabel}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.note || p.invoice_number || 'Payment')}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px;">${fmtDateShort(p.payment_date)}${p.method ? ' · ' + esc(p.method) : ''}${p.invoice_number ? ' · Inv #' + esc(p.invoice_number) : ''}</div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);flex-shrink:0;">${fmtMoney(p.amount)}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:12px;color:var(--muted);padding:10px 0;">No payments recorded yet.</div>';
+
   document.getElementById('panel-title').textContent = v2.name;
   document.getElementById('panel-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-      <div class="vendor-avatar" style="width:50px;height:50px;font-size:16px;">${initials}</div>
-      <div><div style="font-size:14px;font-weight:700;">${esc(v2.name)}</div><div style="font-size:12px;color:var(--muted);">${esc(v2.trade||'')}</div></div>
+      <div class="vendor-avatar" style="width:46px;height:46px;font-size:15px;">${initials}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(v2.name)}</div>
+        <div style="font-size:12px;color:var(--muted);">${esc(v2.trade||'')}${v2.contact_person ? ' · ' + esc(v2.contact_person) : ''}</div>
+      </div>
     </div>
-    ${v2.phone ? `<div class="panel-row"><div class="panel-lbl">Phone</div><div class="panel-val" style="color:var(--blue)"><a href="tel:${esc(v2.phone)}">${esc(v2.phone)}</a></div></div>` : ''}
-    ${v2.email ? `<div class="panel-row"><div class="panel-lbl">Email</div><div class="panel-val" style="color:var(--blue)"><a href="mailto:${esc(v2.email)}">${esc(v2.email)}</a></div></div>` : ''}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:13px;">
+      <div style="background:var(--amber-lt);border-radius:var(--radius-sm);padding:10px 12px;">
+        <div style="font-size:18px;font-weight:700;color:var(--amber);">${fmtMoney(total)}</div>
+        <div style="font-size:10px;color:var(--amber);opacity:0.8;margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;">Total Paid</div>
+      </div>
+      <div style="background:var(--surface);border-radius:var(--radius-sm);padding:10px 12px;">
+        <div style="font-size:18px;font-weight:700;color:var(--text);">${count}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;">Payments</div>
+      </div>
+      <div style="background:var(--surface);border-radius:var(--radius-sm);padding:10px 12px;">
+        <div style="font-size:14px;font-weight:700;color:var(--text);">${lastDt}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;">Last Payment</div>
+      </div>
+      <div style="background:var(--surface);border-radius:var(--radius-sm);padding:10px 12px;">
+        <div style="font-size:14px;font-weight:700;color:var(--text);">${avgAmt}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;">Avg Payment</div>
+      </div>
+    </div>
+
+    ${v2.phone ? `<div class="panel-row"><div class="panel-lbl">Phone</div><div class="panel-val"><a href="tel:${esc(v2.phone)}" style="color:var(--blue)">${esc(v2.phone)}</a></div></div>` : ''}
+    ${v2.email ? `<div class="panel-row"><div class="panel-lbl">Email</div><div class="panel-val"><a href="mailto:${esc(v2.email)}" style="color:var(--blue)">${esc(v2.email)}</a></div></div>` : ''}
     ${v2.address ? `<div class="panel-row"><div class="panel-lbl">Address</div><div class="panel-val">${esc(v2.address)}</div></div>` : ''}
     ${v2.license_number ? `<div class="panel-row"><div class="panel-lbl">License #</div><div class="panel-val">${esc(v2.license_number)}</div></div>` : ''}
     ${v2.note ? `<div class="panel-row"><div class="panel-lbl">Note</div><div class="panel-note">${esc(v2.note)}</div></div>` : ''}
-    <div class="panel-actions">
+
+    <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 4px;">Payment History</div>
+    ${histRows}
+
+    <div class="panel-actions" style="margin-top:12px;">
       <button class="panel-edit-btn" onclick="closePanel();openVendorModal('${id}')">&#9998; Edit</button>
       <button class="panel-del-btn" onclick="deleteRecord('vendors','${id}')">Delete</button>
     </div>
@@ -1348,8 +1470,12 @@ async function exportPDF() {
     doc.text('Vendors & Subcontractors', 14, y); y += 4;
     doc.autoTable({
       startY: y,
-      head: [['Name','Trade','Phone','Email','License #']],
-      body: vendors.map(x => [x.name, x.trade||'—', x.phone||'—', x.email||'—', x.license_number||'—']),
+      head: [['Name','Trade','Contact','Phone','Email','License #','Total Paid','Pmts']],
+      body: vendors.map(x => {
+        const vps = payments.filter(p => p.vendor_id === x.id && !p.is_due);
+        const vt  = vps.reduce((s,p) => s + (p.amount||0), 0);
+        return [x.name, x.trade||'—', x.contact_person||'—', x.phone||'—', x.email||'—', x.license_number||'—', fmtMoney(vt), vps.length];
+      }),
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [11, 31, 58], textColor: [245, 166, 35], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [245, 247, 250] },
