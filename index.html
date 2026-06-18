@@ -229,6 +229,29 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .fin-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .fin-tab{flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;}
 .fin-tab.on{color:var(--amber);border-bottom-color:var(--amber);}
+.advance-card{background:linear-gradient(135deg,var(--navy) 0%,var(--slate) 100%);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;color:#fff;}
+.advance-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.advance-card-lbl{font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.6px;}
+.advance-card-bal{font-size:26px;font-weight:700;color:#fff;}
+.advance-card-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;}
+.advance-mini-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.advance-mini{background:rgba(255,255,255,0.08);border-radius:7px;padding:8px 10px;}
+.advance-mini-val{font-size:14px;font-weight:700;color:#fff;}
+.advance-mini-lbl{font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;}
+.advance-record-btn{background:rgba(245,166,35,0.18);border:1px solid rgba(245,166,35,0.45);color:var(--gold);border-radius:7px;padding:8px;font-size:12px;font-weight:700;text-align:center;margin-top:10px;cursor:pointer;}
+.ledger-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.ledger-item:last-child{border-bottom:none;}
+.ledger-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+.ledger-icon.in{background:var(--green-lt);color:var(--green);}
+.ledger-icon.out{background:var(--red-lt);color:var(--red);}
+.ledger-meta{flex:1;min-width:0;}
+.ledger-name{font-size:12px;font-weight:600;color:var(--text);}
+.ledger-detail{font-size:10px;color:var(--muted);margin-top:1px;}
+.ledger-right{text-align:right;flex-shrink:0;}
+.ledger-amt{font-size:13px;font-weight:700;}
+.ledger-amt.in{color:var(--green);}
+.ledger-amt.out{color:var(--red);}
+.ledger-bal{font-size:10px;color:var(--muted);margin-top:1px;}
 
 /* ── PDF BUTTON ── */
 .pdf-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--slate-lt);color:var(--slate);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:600;width:100%;margin-bottom:14px;}
@@ -355,6 +378,19 @@ textarea.field-input{resize:vertical;min-height:72px;}
         <div class="stat-card green"><div class="stat-val" id="stat-remain">$0</div><div class="stat-lbl">Remaining</div></div>
         <div class="stat-card red"><div class="stat-val" id="stat-due">$0</div><div class="stat-lbl">Bills Due</div></div>
       </div>
+      <div class="advance-card" id="home-advance-card" style="display:none;">
+        <div class="advance-card-top">
+          <div>
+            <div class="advance-card-lbl">Advance Fund Balance</div>
+            <div class="advance-card-bal" id="home-advance-balance">$0</div>
+            <div class="advance-card-sub" id="home-advance-sub">held by Contractor</div>
+          </div>
+        </div>
+        <div class="advance-mini-row">
+          <div class="advance-mini"><div class="advance-mini-val" id="home-advance-total">$0</div><div class="advance-mini-lbl">Total Advanced</div></div>
+          <div class="advance-mini"><div class="advance-mini-val" id="home-advance-drawn">$0</div><div class="advance-mini-lbl">Drawn Down</div></div>
+        </div>
+      </div>
       <div class="rec-box">
         <div class="rec-label">Next up</div>
         <div class="rec-text" id="rec-text">Loading project recommendations…</div>
@@ -378,6 +414,30 @@ textarea.field-input{resize:vertical;min-height:72px;}
       <div class="stat-card red" style="margin-bottom:12px;border-radius:var(--radius-sm);padding:11px 13px;">
         <div class="stat-val" id="fin-due">$0</div><div class="stat-lbl">Outstanding Bills</div>
       </div>
+
+      <!-- ── ADVANCE FUND ── -->
+      <div class="card">
+        <div class="sec-hdr">
+          <div class="sec-hdr-label">Advance Fund</div>
+          <div class="sort-btn" onclick="openAdvanceModal()">+ Record Advance</div>
+        </div>
+        <div class="advance-card" style="margin-bottom:10px;">
+          <div class="advance-card-top">
+            <div>
+              <div class="advance-card-lbl">Current Balance</div>
+              <div class="advance-card-bal" id="adv-balance">$0</div>
+              <div class="advance-card-sub" id="adv-sub">held by Contractor for vendor payments</div>
+            </div>
+          </div>
+          <div class="advance-mini-row">
+            <div class="advance-mini"><div class="advance-mini-val" id="adv-total">$0</div><div class="advance-mini-lbl">Total Advanced</div></div>
+            <div class="advance-mini"><div class="advance-mini-val" id="adv-drawn">$0</div><div class="advance-mini-lbl">Drawn Down</div></div>
+          </div>
+        </div>
+        <div class="sec-hdr"><div class="sec-hdr-label" style="font-size:11px;">Running Ledger</div></div>
+        <div id="advance-ledger"><div class="empty-state"><p style="font-size:12px;">No advance activity yet.</p></div></div>
+      </div>
+
       <div class="fin-tabs">
         <div class="fin-tab on" onclick="filterFin('all')">All</div>
         <div class="fin-tab" onclick="filterFin('owner')">Owner</div>
@@ -746,6 +806,18 @@ async function loadAll() {
 function renderAll() { renderStats(); renderHomeTxn(); renderFinance(); renderSchedule(); renderVendors(); renderRecommendation(); }
 
 // ── STATS ──
+// ── ADVANCE FUND CALCULATIONS ──
+function advanceTotals() {
+  // Advances IN: payments flagged is_advance_fund = true (Owner → Contractor lump sums)
+  const advancesIn = payments.filter(x => x.is_advance_fund && !x.is_due)
+    .reduce((s, x) => s + (x.amount || 0), 0);
+  // Draws OUT: payments where funding_source = 'advance' (Contractor paying vendors from the fund)
+  const drawsOut = payments.filter(x => x.funding_source === 'advance' && !x.is_due)
+    .reduce((s, x) => s + (x.amount || 0), 0);
+  const balance = advancesIn - drawsOut;
+  return { advancesIn, drawsOut, balance };
+}
+
 function renderStats() {
   const p = projects[currentProjectIdx];
   const budget = p?.budget || 0;
@@ -760,6 +832,61 @@ function renderStats() {
   document.getElementById('fin-owner').textContent = fmtMoney(ownerPaid);
   document.getElementById('fin-contractor').textContent = fmtMoney(contrPaid);
   document.getElementById('fin-due').textContent = fmtMoney(due);
+
+  // Advance fund stats — Home card + Finance section
+  const adv = advanceTotals();
+  const homeCard = document.getElementById('home-advance-card');
+  if (homeCard) {
+    if (adv.advancesIn > 0) {
+      homeCard.style.display = 'block';
+      document.getElementById('home-advance-balance').textContent = fmtMoney(adv.balance);
+      document.getElementById('home-advance-total').textContent = fmtMoney(adv.advancesIn);
+      document.getElementById('home-advance-drawn').textContent = fmtMoney(adv.drawsOut);
+    } else {
+      homeCard.style.display = 'none';
+    }
+  }
+  const advBal = document.getElementById('adv-balance');
+  if (advBal) {
+    advBal.textContent = fmtMoney(adv.balance);
+    document.getElementById('adv-total').textContent = fmtMoney(adv.advancesIn);
+    document.getElementById('adv-drawn').textContent = fmtMoney(adv.drawsOut);
+  }
+  renderAdvanceLedger();
+}
+
+function renderAdvanceLedger() {
+  const list = document.getElementById('advance-ledger');
+  if (!list) return;
+  // Combine advances-in and draws-out into one running-balance ledger, sorted by date
+  const entries = payments.filter(x => (x.is_advance_fund || x.funding_source === 'advance') && !x.is_due)
+    .map(x => ({ ...x, _isAdvance: !!x.is_advance_fund }))
+    .sort((a, b) => (a.payment_date || '').localeCompare(b.payment_date || '') || (a.entered_at||'').localeCompare(b.entered_at||''));
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state"><p style="font-size:12px;">No advance activity yet.</p></div>';
+    return;
+  }
+
+  let running = 0;
+  const rows = entries.map(e => {
+    if (e._isAdvance) running += (e.amount || 0);
+    else running -= (e.amount || 0);
+    const vendorName = vendors.find(v => v.id === e.vendor_id)?.name || e.payee_name || (e._isAdvance ? 'Contractor (Advance)' : '—');
+    return `<div class="ledger-item">
+      <div class="ledger-icon ${e._isAdvance ? 'in' : 'out'}">${e._isAdvance ? '+' : '−'}</div>
+      <div class="ledger-meta">
+        <div class="ledger-name">${esc(e._isAdvance ? 'Advance to Contractor' : vendorName)}</div>
+        <div class="ledger-detail">${fmtDateShort(e.payment_date)}${e.note ? ' · ' + esc(e.note) : ''}</div>
+      </div>
+      <div class="ledger-right">
+        <div class="ledger-amt ${e._isAdvance ? 'in' : 'out'}">${e._isAdvance ? '+' : '−'}${fmtMoney(e.amount)}</div>
+        <div class="ledger-bal">Bal: ${fmtMoney(running)}</div>
+      </div>
+    </div>`;
+  });
+  // Show most recent first
+  list.innerHTML = rows.reverse().join('');
 }
 
 // ── HOME TRANSACTIONS ──
@@ -927,10 +1054,17 @@ function openPayModal(prefillVendorId = null, prefillPayment = null) {
       <div id="kp-wrap" class="hidden"></div></div>
     <div class="field"><div class="field-lbl">Paid By</div>
       <div class="seg">
-        <div class="seg-opt ${paidByOwner ? 'on owner' : ''}" onclick="setSeg(this,'fp-paid-by','owner')">Owner</div>
-        <div class="seg-opt ${!paidByOwner ? 'on contractor' : ''}" onclick="setSeg(this,'fp-paid-by','contractor')">Contractor</div>
+        <div class="seg-opt ${paidByOwner ? 'on owner' : ''}" onclick="setSeg(this,'fp-paid-by','owner');toggleFundingRow()">Owner</div>
+        <div class="seg-opt ${!paidByOwner ? 'on contractor' : ''}" onclick="setSeg(this,'fp-paid-by','contractor');toggleFundingRow()">Contractor</div>
       </div>
       <input type="hidden" id="fp-paid-by" value="${paidByOwner ? 'owner' : 'contractor'}"></div>
+    <div class="field" id="funding-source-row" style="${paidByOwner ? 'display:none;' : ''}">
+      <div class="field-lbl">Funding Source</div>
+      <div class="seg">
+        <div class="seg-opt ${(p?.funding_source||'direct')==='direct' ? 'on' : ''}" onclick="setSeg(this,'fp-funding','direct')">Direct (Contractor's Own)</div>
+        <div class="seg-opt ${p?.funding_source==='advance' ? 'on' : ''}" onclick="setSeg(this,'fp-funding','advance')">From Advance Fund</div>
+      </div>
+      <input type="hidden" id="fp-funding" value="${p?.funding_source||'direct'}"></div>
     <div class="field"><div class="field-lbl">Status</div>
       <div class="seg">
         <div class="seg-opt ${isDuePaid ? 'on' : ''}" onclick="setSeg(this,'fp-is-due','false')">Paid</div>
@@ -971,6 +1105,7 @@ async function savePayment() {
   const payeeName = v('fp-payee');
   const amount = parseFloat(document.getElementById('fp-amount-val').value) || 0;
   const paidBy = v('fp-paid-by') || 'owner';
+  const fundingSource = paidBy === 'contractor' ? (v('fp-funding') || 'direct') : null;
   const isDue = v('fp-is-due') === 'true';
   const payDate = v('fp-paydate-val') || todayStr();
   const invDate = v('fp-invdate-val') || todayStr();
@@ -983,7 +1118,8 @@ async function savePayment() {
     project_id: pid, vendor_id: vendorId, payee_name: payeeName,
     amount, paid_by: paidBy, is_due: isDue,
     payment_date: payDate, invoice_date: invDate,
-    invoice_number: inv, method, note
+    invoice_number: inv, method, note,
+    funding_source: fundingSource
   };
 
   let finalRow = { ...baseRow };
@@ -1000,17 +1136,80 @@ async function savePayment() {
     ? await sb.from('payments').update(baseRow).eq('id', editingId)
     : await sb.from('payments').insert([finalRow]);
 
-  // If insert failed because audit columns don't exist yet, retry without them
-  if (result.error && !editingId &&
-      (result.error.message.includes('entered_at') ||
-       result.error.message.includes('entered_by_role') ||
-       result.error.code === '42703')) {
-    console.warn('Audit columns missing — saving without timestamp. Run add_payment_audit.sql in Supabase.');
-    result = await sb.from('payments').insert([baseRow]);
+  // If insert failed because newer columns don't exist yet, retry progressively
+  if (result.error && !editingId && result.error.code === '42703') {
+    console.warn('Schema column missing — retrying with reduced fields. Run pending SQL migrations in Supabase.');
+    const stripped = { ...baseRow };
+    delete stripped.funding_source;
+    result = await sb.from('payments').insert([stripped]);
+  }
+  if (result.error && editingId && result.error.code === '42703') {
+    const stripped = { ...baseRow };
+    delete stripped.funding_source;
+    result = await sb.from('payments').update(stripped).eq('id', editingId);
   }
 
   if (result.error) { toast('Save failed: ' + result.error.message); return; }
   toast(editingId ? 'Payment updated' : 'Payment saved');
+  closeModal(); await loadAll();
+}
+
+// ── RECORD ADVANCE (Owner → Contractor lump sum) ──
+function openAdvanceModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Record Advance to Contractor';
+  const today = todayStr();
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field" style="background:var(--amber-lt);border-radius:var(--radius-sm);padding:10px 12px;">
+      <div style="font-size:12px;color:#7A4A00;line-height:1.5;">This logs a lump-sum advance paid by Owner to Contractor. The amount becomes available as a draw-down balance the Contractor can use to pay vendors on Owner's behalf.</div>
+    </div>
+    <div class="field"><div class="field-lbl">Advance Amount ($)</div>
+      <div class="field-input tap-to-edit" id="fa-amount-disp" onclick="openKP('fa-amount-disp','fa-amount-val')">Tap to enter</div>
+      <input type="hidden" id="fa-amount-val" value="0">
+      <div id="kp-wrap" class="hidden"></div></div>
+    <div class="field"><div class="field-lbl">Date</div>
+      <div class="field-input" id="fa-date-disp" onclick="openCal('fa-date-disp','fa-date-val')">${fmtDateShort(today)}</div>
+      <input type="hidden" id="fa-date-val" value="${today}">
+      <div id="cal-fa-date-disp" class="cal-wrap hidden"></div></div>
+    <div class="field"><div class="field-lbl">Method</div>
+      <div class="seg">
+        <div class="seg-opt on" onclick="setSeg(this,'fa-method','Check')">Check</div>
+        <div class="seg-opt" onclick="setSeg(this,'fa-method','ACH')">ACH</div>
+        <div class="seg-opt" onclick="setSeg(this,'fa-method','CC')">CC</div>
+        <div class="seg-opt" onclick="setSeg(this,'fa-method','Cash')">Cash</div>
+      </div>
+      <input type="hidden" id="fa-method" value="Check"></div>
+    <div class="field"><div class="field-lbl">Note</div>
+      <textarea class="field-input" id="fa-note" placeholder="e.g. Second advance for framing phase"></textarea></div>
+    <button class="btn-save" onclick="saveAdvance()">Record Advance</button>
+    <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+  openModal();
+}
+
+async function saveAdvance() {
+  const pid = projects[currentProjectIdx]?.id;
+  const amount = parseFloat(document.getElementById('fa-amount-val').value) || 0;
+  const payDate = v('fa-date-val') || todayStr();
+  const method = v('fa-method') || 'Check';
+  const note = v('fa-note');
+  if (amount <= 0) { toast('Enter an advance amount'); return; }
+  const baseRow = {
+    project_id: pid, vendor_id: null, payee_name: 'Contractor (Advance Fund)',
+    amount, paid_by: 'owner', is_due: false,
+    payment_date: payDate, invoice_date: payDate,
+    invoice_number: '', method, note,
+    is_advance_fund: true
+  };
+  let finalRow = { ...baseRow, entered_by_role: currentRole || 'owner', entered_at: new Date().toISOString() };
+  let result = await sb.from('payments').insert([finalRow]);
+  if (result.error && result.error.code === '42703') {
+    console.warn('is_advance_fund column missing — run add_advance_fund.sql in Supabase.');
+    delete finalRow.is_advance_fund;
+    result = await sb.from('payments').insert([finalRow]);
+    if (result.error) { delete finalRow.entered_by_role; delete finalRow.entered_at; result = await sb.from('payments').insert([finalRow]); }
+  }
+  if (result.error) { toast('Save failed: ' + result.error.message); return; }
+  toast('Advance recorded');
   closeModal(); await loadAll();
 }
 
@@ -1440,6 +1639,37 @@ async function exportPDF() {
   const ownerLabel = p?.owner_name ? p.owner_name : 'Owner';
   const contrLabel = p?.contractor_name ? p.contractor_name : 'Contractor';
   doc.text(`${ownerLabel} Paid: ${fmtMoney(ownerPaid)}   |   ${contrLabel} Paid: ${fmtMoney(contrPaid)}`, 14, y); y += 10;
+
+  // ── Advance Fund summary + running ledger ──
+  const advData = advanceTotals();
+  if (advData.advancesIn > 0) {
+    if (y > 220) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('Advance Fund', 14, y); y += 6;
+    doc.setFontSize(10); doc.setFont('helvetica','normal');
+    doc.text(`Total Advanced: ${fmtMoney(advData.advancesIn)}   |   Drawn Down: ${fmtMoney(advData.drawsOut)}   |   Current Balance: ${fmtMoney(advData.balance)}`, 14, y); y += 8;
+
+    const advEntries = payments.filter(x => (x.is_advance_fund || x.funding_source === 'advance') && !x.is_due)
+      .map(x => ({ ...x, _isAdvance: !!x.is_advance_fund }))
+      .sort((a, b) => (a.payment_date||'').localeCompare(b.payment_date||''));
+    let running = 0;
+    const advRows = advEntries.map(e => {
+      if (e._isAdvance) running += (e.amount||0); else running -= (e.amount||0);
+      const vn = vendors.find(v => v.id === e.vendor_id)?.name || e.payee_name || (e._isAdvance ? 'Advance to Contractor' : '—');
+      return [fmtDateShort(e.payment_date), e._isAdvance ? 'Advance In' : 'Draw Out', vn, e._isAdvance ? '+'+fmtMoney(e.amount) : '-'+fmtMoney(e.amount), fmtMoney(running), (e.note||'').slice(0,30)];
+    });
+    doc.autoTable({
+      startY: y,
+      head: [['Date','Type','Payee','Amount','Balance','Note']],
+      body: advRows,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [11, 31, 58], textColor: [245, 166, 35], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
   if (payments.length) {
     doc.setFont('helvetica','bold'); doc.setFontSize(11);
     doc.text('Payment Ledger', 14, y); y += 4;
@@ -1552,6 +1782,12 @@ function setSeg(el, hiddenId, val) {
   parent.querySelectorAll('.seg-opt').forEach(o => o.classList.remove('on'));
   el.classList.add('on');
   document.getElementById(hiddenId).value = val;
+}
+
+function toggleFundingRow() {
+  const row = document.getElementById('funding-source-row');
+  const paidBy = document.getElementById('fp-paid-by')?.value;
+  if (row) row.style.display = (paidBy === 'contractor') ? '' : 'none';
 }
 function showDbError(msg) {
   const el = document.getElementById('db-error-banner');
