@@ -907,14 +907,38 @@ async function savePayment() {
   const method = v('fp-method') || 'Check';
   const note = v('fp-note');
   if (!vendorId && !payeeName) { toast('Select a vendor or enter a payee name'); return; }
-  // On insert: capture who entered it and when (UTC → display in local time)
-  const baseRow = { project_id: pid, vendor_id: vendorId, payee_name: payeeName, amount, paid_by: paidBy, is_due: isDue, payment_date: payDate, invoice_date: invDate, invoice_number: inv, method, note };
-  const insertRow = { ...baseRow, entered_by_role: currentRole || 'owner', entered_at: new Date().toISOString() };
-  // On update: preserve original stamp — only update data fields
-  const { error } = editingId
+  // Core payment data — always safe to write
+  const baseRow = {
+    project_id: pid, vendor_id: vendorId, payee_name: payeeName,
+    amount, paid_by: paidBy, is_due: isDue,
+    payment_date: payDate, invoice_date: invDate,
+    invoice_number: inv, method, note
+  };
+
+  let finalRow = { ...baseRow };
+
+  // Audit stamp: only on INSERT, and only if columns exist in schema.
+  // Try with audit fields first; if Supabase rejects due to missing columns,
+  // fall back to baseRow automatically so payments always succeed.
+  if (!editingId) {
+    finalRow.entered_by_role = currentRole || 'owner';
+    finalRow.entered_at      = new Date().toISOString();
+  }
+
+  let result = editingId
     ? await sb.from('payments').update(baseRow).eq('id', editingId)
-    : await sb.from('payments').insert([insertRow]);
-  if (error) { toast('Save failed: ' + error.message); return; }
+    : await sb.from('payments').insert([finalRow]);
+
+  // If insert failed because audit columns don't exist yet, retry without them
+  if (result.error && !editingId &&
+      (result.error.message.includes('entered_at') ||
+       result.error.message.includes('entered_by_role') ||
+       result.error.code === '42703')) {
+    console.warn('Audit columns missing — saving without timestamp. Run add_payment_audit.sql in Supabase.');
+    result = await sb.from('payments').insert([baseRow]);
+  }
+
+  if (result.error) { toast('Save failed: ' + result.error.message); return; }
   toast(editingId ? 'Payment updated' : 'Payment saved');
   closeModal(); await loadAll();
 }
