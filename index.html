@@ -625,7 +625,7 @@ function cycleProject(dir) {
 
 function buildProjectForm(p) {
   const today = todayStr();
-  const startVal  = p?.started_at  || today;
+  const startVal  = p?.started_at || today;
   const startDisp = fmtDateShort(startVal);
   return `
     <div class="field"><div class="field-lbl">Project Name / Address</div>
@@ -640,14 +640,11 @@ function buildProjectForm(p) {
     </div>
     <div class="f2">
       <div class="field"><div class="field-lbl">Start Date</div>
-        <div class="pop-field">
-          <div class="pop-trigger" id="pt-proj-start" onclick="popToggle('pop-proj-start','pt-proj-start')">
-            <span id="pv-proj-start">${startDisp}</span>
-            <span class="pt-icon">&#128197;</span>
-          </div>
-          <div class="popup-box" id="pop-proj-start"></div>
-          <input type="hidden" id="ph-proj-start" value="${startVal}">
-        </div>
+        <div class="field-input" id="fp-start-disp"
+             style="cursor:pointer;color:var(--amber);font-weight:600;"
+             onclick="openCal('fp-start-disp','fp-start-val')">${startDisp}</div>
+        <input type="hidden" id="fp-start-val" value="${startVal}">
+        <div id="cal-fp-start-disp" class="cal-wrap hidden"></div>
       </div>
       <div class="field"><div class="field-lbl">Budget ($)</div>
         <input class="field-input" id="fp-budget" type="number" value="${p?.budget||''}" placeholder="0.00"></div>
@@ -660,7 +657,6 @@ async function openAddProject() {
   document.getElementById('modal-body').innerHTML = buildProjectForm(null) + `
     <button class="btn-save" onclick="saveProject(false)">Add Project</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
-  initCalPop('pop-proj-start', todayStr(), 'pv-proj-start', 'ph-proj-start', 'pt-proj-start');
   openModal();
 }
 
@@ -672,7 +668,6 @@ async function openEditProject() {
   document.getElementById('modal-body').innerHTML = buildProjectForm(p) + `
     <button class="btn-save" onclick="saveProject(true)">Save Changes</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
-  initCalPop('pop-proj-start', p.started_at || todayStr(), 'pv-proj-start', 'ph-proj-start', 'pt-proj-start');
   openModal();
 }
 
@@ -681,7 +676,7 @@ async function saveProject(isEdit) {
   const desc        = gv('fp-desc').trim();
   const ownerName   = gv('fp-owner').trim();
   const contractorName = gv('fp-contractor').trim();
-  const startedAt   = gv('ph-proj-start') || todayStr();
+  const startedAt   = gv('fp-start-val') || todayStr();
   const budget      = parseFloat(gv('fp-budget')) || 0;
   if (!name) { toast('Project name required'); return; }
   const row = { name, description: desc, owner_name: ownerName, contractor_name: contractorName, started_at: startedAt, budget };
