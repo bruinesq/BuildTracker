@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Construction Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+<style>
+/* ── RESET & BASE ── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;background:#F0F2F5;color:#0B1F3A;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:none;}
+
+/* ── CSS VARIABLES ── */
+:root{
+  --navy:#0B1F3A;
+  --navy2:#122840;
+  --gold:#F5A623;
+  --amber:#D4820A;
+  --amber-lt:#FDF0D9;
+  --slate:#1E3A5F;
+  --slate-lt:#E8EFF7;
+  --white:#FFFFFF;
+  --surface:#F7F8FA;
+  --border:#D8DCE3;
+  --border2:#C4C9D4;
+  --text:#0B1F3A;
+  --muted:#6B7280;
+  --red:#C0392B;
+  --red-lt:#FDECEA;
+  --green:#1A7A40;
+  --green-lt:#E6F7EE;
+  --blue:#1E5FA5;
+  --blue-lt:#E8F0FB;
+  --radius:10px;
+  --radius-sm:7px;
+}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;background:var(--white);position:relative;overflow:hidden;}
+
+/* ── TOP BAR ── */
+#topbar{background:var(--navy);padding:14px 14px 0;flex-shrink:0;}
+.tb-row1{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.tb-appname{font-size:11px;font-weight:600;color:var(--gold);letter-spacing:0.6px;text-transform:uppercase;}
+.tb-right{display:flex;align-items:center;gap:8px;}
+.tb-add-proj{display:flex;align-items:center;gap:4px;background:rgba(245,166,35,0.18);border:1px solid rgba(245,166,35,0.45);border-radius:6px;padding:5px 10px;color:var(--gold);font-size:11px;font-weight:600;}
+.tb-chevrons{display:flex;flex-direction:column;gap:0;cursor:pointer;padding:2px 4px;}
+.tb-chevrons span{font-size:16px;color:rgba(255,255,255,0.65);line-height:1.15;display:block;}
+.tb-proj-name{font-size:17px;font-weight:600;color:#fff;margin-top:7px;}
+.tb-proj-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;margin-bottom:8px;}
+.tb-dots{display:flex;gap:5px;padding-bottom:10px;}
+.tb-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.22);}
+.tb-dot.on{background:var(--gold);}
+
+/* ── NAV TABS ── */
+#nav{display:flex;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
+#nav::-webkit-scrollbar{display:none;}
+.nav-tab{flex:1;min-width:52px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 8px;font-size:10px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;}
+.nav-tab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.nav-tab.on{color:var(--amber);border-bottom-color:var(--amber);}
+
+/* ── MAIN CONTENT ── */
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
+
+/* ── CARDS & SECTIONS ── */
+.page{display:none;padding:14px;}
+.page.on{display:block;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sec-hdr-label{font-size:13px;font-weight:600;color:var(--text);}
+.sort-btn{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);padding:4px 8px;border:1px solid var(--border);border-radius:5px;}
+
+/* ── STATS GRID ── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.stat-card{background:var(--surface);border-radius:var(--radius-sm);padding:11px 13px;}
+.stat-val{font-size:20px;font-weight:700;color:var(--text);}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px;}
+.stat-card.amber .stat-val{color:var(--amber);}
+.stat-card.blue .stat-val{color:var(--blue);}
+.stat-card.green .stat-val{color:var(--green);}
+.stat-card.red .stat-val{color:var(--red);}
+
+/* ── TRANSACTION LIST ── */
+.txn-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.txn-item:last-child{border-bottom:none;}
+.txn-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;font-weight:700;}
+.txn-icon.owner{background:var(--blue-lt);color:var(--blue);}
+.txn-icon.contractor{background:var(--amber-lt);color:var(--amber);}
+.txn-icon.due{background:var(--red-lt);color:var(--red);}
+.txn-meta{flex:1;min-width:0;}
+.txn-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.txn-detail{font-size:11px;color:var(--muted);margin-top:2px;}
+.txn-note{font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.txn-right{text-align:right;flex-shrink:0;}
+.txn-amt{font-size:14px;font-weight:700;color:var(--text);}
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-top:3px;}
+.badge.owner{background:var(--blue-lt);color:var(--blue);}
+.badge.contractor{background:var(--amber-lt);color:#7A4A00;}
+.badge.due{background:var(--red-lt);color:var(--red);}
+.badge.done{background:var(--green-lt);color:var(--green);}
+.badge.pending{background:#FFF3E0;color:#8B5E00;}
+
+/* ── VENDOR LIST ── */
+.vendor-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.vendor-item:last-child{border-bottom:none;}
+.vendor-avatar{width:38px;height:38px;border-radius:50%;background:var(--slate-lt);color:var(--slate);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.vendor-info{flex:1;min-width:0;}
+.vendor-name{font-size:13px;font-weight:600;color:var(--text);}
+.vendor-trade{font-size:11px;color:var(--muted);margin-top:1px;}
+.vendor-phone{font-size:11px;color:var(--blue);margin-top:1px;}
+.vendor-chev{color:var(--muted);font-size:18px;line-height:1;}
+
+/* ── SCHEDULE ── */
+.sched-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.sched-item:last-child{border-bottom:none;}
+.sched-date{background:var(--navy);color:#fff;border-radius:var(--radius-sm);padding:6px 9px;text-align:center;min-width:46px;flex-shrink:0;}
+.sched-date .mon{font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;}
+.sched-date .day{font-size:19px;font-weight:700;line-height:1.1;}
+.sched-body{flex:1;min-width:0;}
+.sched-name{font-size:13px;font-weight:600;color:var(--text);}
+.sched-trade{font-size:11px;color:var(--muted);margin-top:1px;}
+.sched-note{font-size:11px;color:var(--muted);background:var(--surface);border-radius:5px;padding:4px 8px;margin-top:5px;border-left:2px solid var(--amber);}
+
+/* ── RECOMMEND BOX ── */
+.rec-box{background:var(--amber-lt);border-radius:var(--radius);padding:11px 13px;margin-bottom:12px;border-left:3px solid var(--amber);}
+.rec-label{font-size:10px;font-weight:700;color:#7A4A00;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;}
+.rec-text{font-size:12px;color:#5A3500;line-height:1.5;}
+
+/* ── FLOATING ACTION BUTTON ── */
+.fab-area{position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:linear-gradient(transparent,var(--white) 45%);padding:10px 14px 14px;display:flex;gap:8px;}
+.fab-primary{flex:1;background:var(--navy);color:var(--gold);border-radius:var(--radius);padding:13px;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;}
+.fab-secondary{background:var(--white);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:13px 16px;font-size:15px;display:flex;align-items:center;gap:6px;}
+
+/* ── SLIDING PANEL ── */
+#panel-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);transition:background 0.25s;pointer-events:none;z-index:50;}
+#panel-overlay.on{background:rgba(0,0,0,0.35);pointer-events:all;}
+#panel{position:absolute;bottom:0;left:0;right:0;background:var(--white);border-radius:16px 16px 0 0;transform:translateY(100%);transition:transform 0.28s cubic-bezier(0.32,0.72,0,1);max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;z-index:51;}
+#panel.on{transform:translateY(0);}
+.panel-hdr{background:var(--navy);padding:14px 16px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-size:16px;font-weight:700;color:#fff;}
+.panel-close{color:rgba(255,255,255,0.7);font-size:24px;line-height:1;padding:2px 4px;}
+.panel-body{padding:16px;}
+.panel-row{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
+.panel-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.panel-val{font-size:14px;color:var(--text);}
+.panel-note{background:var(--surface);border-radius:var(--radius-sm);padding:9px 11px;font-size:13px;color:var(--text);border-left:3px solid var(--amber);}
+.panel-actions{display:flex;gap:8px;margin-top:6px;}
+.panel-edit-btn{flex:1;background:var(--navy);color:var(--gold);border-radius:var(--radius-sm);padding:11px;font-size:14px;font-weight:600;text-align:center;}
+.panel-del-btn{background:var(--red-lt);color:var(--red);border-radius:var(--radius-sm);padding:11px 16px;font-size:14px;font-weight:600;}
+
+/* ── MODAL ── */
+#modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:60;display:none;align-items:flex-end;justify-content:center;}
+#modal-overlay.on{display:flex;}
+#modal{background:var(--white);border-radius:16px 16px 0 0;width:100%;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal-hdr{background:var(--navy);padding:15px 16px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1;}
+.modal-title{font-size:16px;font-weight:700;color:#fff;}
+.modal-close{color:rgba(255,255,255,0.7);font-size:24px;line-height:1;padding:2px 6px;}
+.modal-body{padding:16px;display:flex;flex-direction:column;gap:13px;}
+
+/* ── FORM ELEMENTS ── */
+.field{display:flex;flex-direction:column;gap:5px;}
+.field-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.field-input{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:15px;color:var(--text);width:100%;}
+.field-input:focus{border-color:var(--amber);background:var(--white);}
+.field-input.tap-to-edit{cursor:pointer;color:var(--amber);font-weight:600;font-size:20px;}
+textarea.field-input{resize:vertical;min-height:72px;}
+.field-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.seg{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-sm);padding:3px;border:1px solid var(--border);}
+.seg-opt{flex:1;text-align:center;font-size:12px;font-weight:600;padding:7px 4px;border-radius:6px;color:var(--muted);cursor:pointer;transition:all 0.15s;}
+.seg-opt.on{background:var(--white);color:var(--text);border:1px solid var(--border);}
+.seg-opt.on.owner{color:var(--blue);}
+.seg-opt.on.contractor{color:var(--amber);}
+.btn-save{background:var(--navy);color:var(--gold);border-radius:var(--radius);padding:13px;font-size:16px;font-weight:700;text-align:center;width:100%;margin-top:4px;}
+.btn-cancel-form{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:11px;font-size:14px;font-weight:600;text-align:center;width:100%;margin-top:6px;}
+
+/* ── KEYPAD ── */
+#kp-wrap{display:none;}
+#kp-wrap.on{display:block;}
+.kp-display-area{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;align-items:baseline;justify-content:flex-end;gap:3px;margin-bottom:10px;}
+.kp-expr{font-size:13px;color:var(--muted);margin-right:auto;font-weight:500;}
+.kp-dollar{font-size:22px;font-weight:700;color:var(--amber);}
+.kp-amount{font-size:34px;font-weight:700;color:var(--amber);letter-spacing:1px;font-variant-numeric:tabular-nums;}
+.kp-cursor{width:2px;height:30px;background:var(--amber);display:inline-block;vertical-align:middle;animation:blink 1s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.kp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.key{height:54px;border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--border);background:var(--white);user-select:none;-webkit-user-select:none;transition:background 0.1s;active-scale:0.96;}
+.key:active{background:var(--surface);}
+.key .knum{font-size:22px;font-weight:600;color:var(--text);line-height:1;}
+.key .klet{font-size:8px;color:var(--muted);letter-spacing:1.2px;margin-top:1px;}
+.key.kop{background:var(--amber-lt);border-color:rgba(212,130,10,0.3);}
+.key.kop .knum{color:var(--amber);}
+.key.kcancel{grid-column:span 2;background:var(--red-lt);border-color:rgba(192,57,43,0.3);}
+.key.kcancel .knum{color:var(--red);font-size:14px;font-weight:700;}
+.key.kaccept{background:var(--green-lt);border-color:rgba(26,122,64,0.3);}
+.key.kaccept .knum{color:var(--green);font-size:22px;}
+
+/* ── CALENDAR PICKER ── */
+.cal-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:4px;}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--navy);}
+.cal-nav-title{font-size:14px;font-weight:700;color:#fff;}
+.cal-nav-btn{color:var(--gold);font-size:20px;padding:4px 8px;font-weight:700;}
+.cal-days-hdr{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;padding:6px 8px 2px;}
+.cal-days-hdr span{font-size:10px;font-weight:700;color:var(--muted);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:0 8px 8px;gap:2px;}
+.cal-cell{height:36px;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;border-radius:50%;color:var(--text);}
+.cal-cell:empty{cursor:default;}
+.cal-cell:hover:not(:empty){background:var(--amber-lt);}
+.cal-cell.today{font-weight:700;color:var(--amber);}
+.cal-cell.selected{background:var(--navy);color:var(--gold);font-weight:700;}
+.cal-accept{display:flex;align-items:center;justify-content:center;padding:10px;border-top:1px solid var(--border);background:var(--white);}
+.cal-accept-btn{background:var(--navy);color:var(--gold);border-radius:var(--radius-sm);padding:8px 28px;font-size:14px;font-weight:700;}
+
+/* ── FINANCE TABS ── */
+.fin-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:12px;}
+.fin-tab{flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;}
+.fin-tab.on{color:var(--amber);border-bottom-color:var(--amber);}
+
+/* ── PDF BUTTON ── */
+.pdf-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--slate-lt);color:var(--slate);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:600;width:100%;margin-bottom:14px;}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
+.empty-state .icon{font-size:40px;margin-bottom:10px;display:block;}
+.empty-state p{font-size:14px;}
+
+/* ── PIN LOGIN ── */
+#login-screen{position:absolute;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;padding:20px 30px 30px;}
+.pin-logo{font-size:36px;font-weight:800;color:var(--gold);letter-spacing:-1px;margin-bottom:3px;}
+.pin-sub{font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:24px;}
+.pin-role{display:flex;gap:8px;width:100%;margin-bottom:22px;}
+.role-opt{flex:1;border:1px solid rgba(255,255,255,0.22);border-radius:8px;padding:10px;text-align:center;font-size:13px;font-weight:600;color:rgba(255,255,255,0.5);cursor:pointer;}
+.role-opt.on{border-color:var(--gold);color:var(--gold);background:rgba(245,166,35,0.12);}
+.pin-label{font-size:11px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px;}
+.pin-dots{display:flex;gap:18px;margin-bottom:26px;}
+.pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,0.3);background:transparent;transition:all 0.15s;}
+.pin-dot.filled{background:var(--gold);border-color:var(--gold);}
+.pin-dot.error{background:var(--red);border-color:var(--red);}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:290px;}
+.pin-key{height:66px;border-radius:var(--radius);border:1px solid rgba(255,255,255,0.13);background:rgba(255,255,255,0.07);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:background 0.1s;user-select:none;-webkit-user-select:none;}
+.pin-key:active{background:rgba(255,255,255,0.2);}
+.pin-key .pk-num{font-size:26px;font-weight:500;color:#fff;line-height:1;}
+.pin-key .pk-sub{font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:1.5px;margin-top:2px;}
+.pin-key.pk-del{border-color:rgba(255,255,255,0.08);background:transparent;}
+.pin-key.pk-del .pk-num{font-size:16px;color:rgba(255,255,255,0.5);}
+.pin-err{color:var(--gold);font-size:12px;text-align:center;margin-top:14px;min-height:18px;font-weight:600;}
+
+/* ── TOAST ── */
+#toast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--navy);color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;pointer-events:none;z-index:200;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── UTILITY ── */
+.hidden{display:none!important;}
+.divider{height:1px;background:var(--border);margin:10px 0;}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ PIN LOGIN ══════════════ -->
+<div id="login-screen">
+  <div class="pin-logo">&#9776; BuildTrack</div>
+  <div class="pin-sub">Construction Project Manager</div>
+  <div class="pin-role">
+    <div class="role-opt on" id="role-owner" onclick="selectRole('owner')">&#127968; Owner</div>
+    <div class="role-opt" id="role-contractor" onclick="selectRole('contractor')">&#128296; Contractor</div>
+  </div>
+  <div class="pin-label">Enter your 4-digit PIN</div>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-grid">
+    <div class="pin-key" onclick="pinKey('1')"><span class="pk-num">1</span></div>
+    <div class="pin-key" onclick="pinKey('2')"><span class="pk-num">2</span><span class="pk-sub">ABC</span></div>
+    <div class="pin-key" onclick="pinKey('3')"><span class="pk-num">3</span><span class="pk-sub">DEF</span></div>
+    <div class="pin-key" onclick="pinKey('4')"><span class="pk-num">4</span><span class="pk-sub">GHI</span></div>
+    <div class="pin-key" onclick="pinKey('5')"><span class="pk-num">5</span><span class="pk-sub">JKL</span></div>
+    <div class="pin-key" onclick="pinKey('6')"><span class="pk-num">6</span><span class="pk-sub">MNO</span></div>
+    <div class="pin-key" onclick="pinKey('7')"><span class="pk-num">7</span><span class="pk-sub">PQRS</span></div>
+    <div class="pin-key" onclick="pinKey('8')"><span class="pk-num">8</span><span class="pk-sub">TUV</span></div>
+    <div class="pin-key" onclick="pinKey('9')"><span class="pk-num">9</span><span class="pk-sub">WXYZ</span></div>
+    <div class="pin-key pk-del" onclick="pinKey('clear')"><span class="pk-num" style="font-size:13px;letter-spacing:0;color:rgba(255,255,255,0.45);">CLEAR</span></div>
+    <div class="pin-key" onclick="pinKey('0')"><span class="pk-num">0</span></div>
+    <div class="pin-key pk-del" onclick="pinKey('back')"><span class="pk-num">&#x232B;</span></div>
+  </div>
+  <div class="pin-err" id="pin-err"></div>
+</div>
+
+<!-- ══════════════ APP SHELL ══════════════ -->
+<div id="app" class="hidden">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="tb-row1">
+      <div class="tb-appname">&#9776; BuildTrack</div>
+      <div class="tb-right">
+        <button class="tb-add-proj" onclick="openAddProject()">+ Project</button>
+        <div class="tb-chevrons" onclick="cycleProject(-1)">
+          <span>&#8963;</span>
+          <span onclick="cycleProject(1);event.stopPropagation();">&#8964;</span>
+        </div>
+      </div>
+    </div>
+    <div class="tb-proj-name" id="tb-proj-name">Loading…</div>
+    <div class="tb-proj-sub" id="tb-proj-sub"></div>
+    <div class="tb-dots" id="tb-dots"></div>
+  </div>
+
+  <!-- NAV TABS -->
+  <div id="nav">
+    <div class="nav-tab on" data-tab="home" onclick="showTab('home')">
+      <svg viewBox="0 0 24 24"><path d="M3 12L12 4l9 8"/><path d="M9 21V12h6v9"/><path d="M3 12v9h18V12"/></svg>Home
+    </div>
+    <div class="nav-tab" data-tab="finance" onclick="showTab('finance')">
+      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>Finance
+    </div>
+    <div class="nav-tab" data-tab="schedule" onclick="showTab('schedule')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Sched
+    </div>
+    <div class="nav-tab" data-tab="vendors" onclick="showTab('vendors')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Vendors
+    </div>
+    <div class="nav-tab" data-tab="settings" onclick="showTab('settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ── HOME ── -->
+    <div id="page-home" class="page on">
+      <div class="stat-grid">
+        <div class="stat-card amber"><div class="stat-val" id="stat-total">$0</div><div class="stat-lbl">Total Paid</div></div>
+        <div class="stat-card blue"><div class="stat-val" id="stat-budget">$0</div><div class="stat-lbl">Budget</div></div>
+        <div class="stat-card green"><div class="stat-val" id="stat-remain">$0</div><div class="stat-lbl">Remaining</div></div>
+        <div class="stat-card red"><div class="stat-val" id="stat-due">$0</div><div class="stat-lbl">Bills Due</div></div>
+      </div>
+      <div class="rec-box">
+        <div class="rec-label">Next up</div>
+        <div class="rec-text" id="rec-text">Loading project recommendations…</div>
+      </div>
+      <div class="card">
+        <div class="sec-hdr">
+          <div class="sec-hdr-label">Recent Payments</div>
+          <div class="sort-btn" onclick="toggleSort('home')">&#x21F5; Date</div>
+        </div>
+        <div id="home-txn-list"><div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment below.</p></div></div>
+      </div>
+    </div>
+
+    <!-- ── FINANCE ── -->
+    <div id="page-finance" class="page">
+      <div class="pdf-btn" onclick="exportPDF()">&#x21E9; Export Full PDF Report</div>
+      <div class="stat-grid">
+        <div class="stat-card blue"><div class="stat-val" id="fin-owner">$0</div><div class="stat-lbl">Owner Paid</div></div>
+        <div class="stat-card amber"><div class="stat-val" id="fin-contractor">$0</div><div class="stat-lbl">Contractor Paid</div></div>
+      </div>
+      <div class="stat-card red" style="margin-bottom:12px;border-radius:var(--radius-sm);padding:11px 13px;">
+        <div class="stat-val" id="fin-due">$0</div><div class="stat-lbl">Outstanding Bills</div>
+      </div>
+      <div class="fin-tabs">
+        <div class="fin-tab on" onclick="filterFin('all')">All</div>
+        <div class="fin-tab" onclick="filterFin('owner')">Owner</div>
+        <div class="fin-tab" onclick="filterFin('contractor')">Contractor</div>
+        <div class="fin-tab" onclick="filterFin('due')">Due</div>
+      </div>
+      <div id="fin-list"></div>
+    </div>
+
+    <!-- ── SCHEDULE ── -->
+    <div id="page-schedule" class="page">
+      <div class="rec-box">
+        <div class="rec-label">&#128161; Recommendation</div>
+        <div class="rec-text" id="sched-rec">Based on your current phase, review upcoming milestone requirements.</div>
+      </div>
+      <div class="card">
+        <div class="sec-hdr">
+          <div class="sec-hdr-label">Scheduled Events</div>
+          <div class="sort-btn" onclick="toggleSort('sched')">&#x21F5; Date</div>
+        </div>
+        <div id="sched-list"><div class="empty-state"><span class="icon">📅</span><p>No events scheduled. Tap Add Event below.</p></div></div>
+      </div>
+    </div>
+
+    <!-- ── VENDORS ── -->
+    <div id="page-vendors" class="page">
+      <div class="card">
+        <div class="sec-hdr">
+          <div class="sec-hdr-label">Vendors &amp; Subcontractors</div>
+          <div class="sort-btn" onclick="toggleSort('vendors')">&#x21F5; A–Z</div>
+        </div>
+        <div id="vendor-list"><div class="empty-state"><span class="icon">👷</span><p>No vendors yet. Tap Add Vendor below.</p></div></div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ── -->
+    <div id="page-settings" class="page">
+      <div class="card">
+        <div class="card-title">Account</div>
+        <div class="panel-row"><div class="panel-lbl">Name</div><div class="panel-val" id="settings-email">—</div></div>
+        <div class="panel-row"><div class="panel-lbl">Role</div><div class="panel-val" id="settings-role">—</div></div>
+        <button class="btn-cancel-form" onclick="doLogout()">&#128274; Lock / Sign Out</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Change PIN</div>
+        <div class="field"><div class="field-lbl">New 4-digit PIN</div><input class="field-input" id="new-pin" type="password" maxlength="4" inputmode="numeric" placeholder="Enter new 4-digit PIN"></div>
+        <div class="field" style="margin-top:6px;"><div class="field-lbl">Confirm new PIN</div><input class="field-input" id="new-pin2" type="password" maxlength="4" inputmode="numeric" placeholder="Re-enter PIN"></div>
+        <button class="btn-save" style="margin-top:10px;" onclick="changePin()">Update PIN</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Project Budget</div>
+        <div class="field"><div class="field-lbl">Budget for current project ($)</div>
+          <input class="field-input" id="budget-input" type="number" placeholder="0.00">
+        </div>
+        <button class="btn-save" style="margin-top:10px;" onclick="saveBudget()">Save Budget</button>
+      </div>
+      <div class="card">
+        <div class="card-title">About</div>
+        <div class="panel-row"><div class="panel-lbl">App</div><div class="panel-val">BuildTrack Construction Manager v1.0</div></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- FLOATING ACTION BUTTONS -->
+  <div class="fab-area" id="fab-home">
+    <button class="fab-primary" onclick="openPayModal()">+ Make Payment</button>
+  </div>
+  <div class="fab-area hidden" id="fab-finance"></div>
+  <div class="fab-area hidden" id="fab-schedule">
+    <button class="fab-primary" onclick="openSchedModal()">+ Add Event</button>
+  </div>
+  <div class="fab-area hidden" id="fab-vendors">
+    <button class="fab-primary" onclick="openVendorModal()">+ Add Vendor</button>
+  </div>
+  <div class="fab-area hidden" id="fab-settings"></div>
+
+  <!-- SLIDE-UP PANEL -->
+  <div id="panel-overlay" onclick="closePanel()"></div>
+  <div id="panel">
+    <div class="panel-hdr">
+      <div class="panel-title" id="panel-title">Details</div>
+      <button class="panel-close" onclick="closePanel()">&#xD7;</button>
+    </div>
+    <div class="panel-body" id="panel-body"></div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal-overlay">
+    <div id="modal">
+      <div class="modal-hdr">
+        <div class="modal-title" id="modal-title">Make Payment</div>
+        <button class="modal-close" onclick="closeModal()">&#xD7;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div><!-- /app -->
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIGURATION — Replace with your Supabase credentials
+// ════════════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://wafmwlfxalrqclzeuzcy.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhZm13bGZ4YWxycWNsemV1emN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTUzNTgsImV4cCI6MjA5NzM3MTM1OH0.R4eqUU9tmSiyB2dujJ0XHazq4F4D08Hg0MfFH_sjhpg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── STATE ──
+let currentUser = null, currentRole = 'owner';
+let projects = [], currentProjectIdx = 0;
+let payments = [], vendors = [], schedEvents = [];
+let sortAsc = false, finFilter = 'all', editingId = null;
+let pinBuffer = '';
+
+// Keypad state (payment modal)
+let kpRaw = '0', kpExpr = '', kpHasDot = false;
+// Calendar state (payment modal)
+let calStates = {};
+
+// ── PIN AUTH ──
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function selectRole(r) {
+  currentRole = r;
+  document.getElementById('role-owner').classList.toggle('on', r === 'owner');
+  document.getElementById('role-contractor').classList.toggle('on', r === 'contractor');
+  pinBuffer = ''; renderPinDots();
+  document.getElementById('pin-err').textContent = '';
+}
+
+function renderPinDots(err) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd' + i);
+    d.classList.remove('filled','error');
+    if (err) d.classList.add('error');
+    else if (i < pinBuffer.length) d.classList.add('filled');
+  }
+}
+
+async function pinKey(k) {
+  const errEl = document.getElementById('pin-err');
+  if (k === 'back') { pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); errEl.textContent=''; return; }
+  if (k === 'clear') { pinBuffer = ''; renderPinDots(); errEl.textContent=''; return; }
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += k;
+  renderPinDots();
+  if (pinBuffer.length === 4) await attemptLogin();
+}
+
+async function attemptLogin() {
+  const errEl = document.getElementById('pin-err');
+  const hash = await sha256(pinBuffer);
+  try {
+    const { data, error } = await sb
+      .from('app_users')
+      .select('id, display_name, role')
+      .eq('pin_hash', hash)
+      .eq('role', currentRole)
+      .single();
+    if (error || !data) {
+      renderPinDots(true);
+      errEl.textContent = 'Incorrect PIN. Try again.';
+      setTimeout(() => { pinBuffer = ''; renderPinDots(); }, 900);
+      return;
+    }
+    currentUser = data;
+    sessionStorage.setItem('bt_user', JSON.stringify({ ...data, role: currentRole }));
+    await initApp();
+  } catch(e) {
+    errEl.textContent = 'Connection error. Check network.';
+    pinBuffer = ''; renderPinDots();
+  }
+}
+
+async function changePin() {
+  const p1 = document.getElementById('new-pin')?.value || '';
+  const p2 = document.getElementById('new-pin2')?.value || '';
+  if (!/^\d{4}$/.test(p1)) { toast('PIN must be exactly 4 digits'); return; }
+  if (p1 !== p2) { toast('PINs do not match'); return; }
+  const hash = await sha256(p1);
+  const { error } = await sb.from('app_users').update({ pin_hash: hash }).eq('id', currentUser.id);
+  if (error) { toast('Error updating PIN'); return; }
+  document.getElementById('new-pin').value = '';
+  document.getElementById('new-pin2').value = '';
+  toast('PIN updated successfully');
+}
+
+function doLogout() {
+  sessionStorage.removeItem('bt_user');
+  currentUser = null; pinBuffer = ''; renderPinDots();
+  document.getElementById('pin-err').textContent = '';
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+async function initApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('settings-email').textContent = currentUser.display_name || currentUser.role;
+  document.getElementById('settings-role').textContent = (currentUser.role||'').charAt(0).toUpperCase() + (currentUser.role||'').slice(1);
+  await loadProjects();
+  await loadAll();
+}
+
+// ── PROJECTS ──
+async function loadProjects() {
+  const { data } = await sb.from('projects').select('*').order('created_at', { ascending: true });
+  projects = data || [];
+  if (projects.length === 0) {
+    const { data: np } = await sb.from('projects').insert([{ name: '1514 Voorhees Ave.', description: 'New Home Build', budget: 312000 }]).select();
+    if (np) projects = np;
+  }
+  renderTopBar();
+}
+
+function renderTopBar() {
+  const p = projects[currentProjectIdx];
+  if (!p) return;
+  document.getElementById('tb-proj-name').textContent = p.name;
+  document.getElementById('tb-proj-sub').textContent = (p.description || '') + (p.started_at ? ' · Started ' + fmtDateShort(p.started_at) : '');
+  document.getElementById('budget-input').value = p.budget || '';
+  const dots = document.getElementById('tb-dots');
+  dots.innerHTML = projects.map((_, i) => `<div class="tb-dot ${i === currentProjectIdx ? 'on' : ''}"></div>`).join('');
+}
+
+function cycleProject(dir) {
+  if (projects.length < 2) return;
+  currentProjectIdx = (currentProjectIdx + dir + projects.length) % projects.length;
+  renderTopBar();
+  loadAll();
+}
+
+async function openAddProject() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Project';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><div class="field-lbl">Project Name</div><input class="field-input" id="fp-name" placeholder="e.g. 1514 Voorhees Ave."></div>
+    <div class="field"><div class="field-lbl">Description</div><input class="field-input" id="fp-desc" placeholder="e.g. New Home Build"></div>
+    <div class="field"><div class="field-lbl">Budget ($)</div><input class="field-input" id="fp-budget" type="number" placeholder="0.00"></div>
+    <button class="btn-save" onclick="saveProject()">Add Project</button>
+    <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+  openModal();
+}
+
+async function saveProject() {
+  const name = v('fp-name'), desc = v('fp-desc'), budget = parseFloat(v('fp-budget')) || 0;
+  if (!name) { toast('Project name required'); return; }
+  const { data } = await sb.from('projects').insert([{ name, description: desc, budget, started_at: new Date().toISOString() }]).select();
+  if (data) { projects.push(data[0]); currentProjectIdx = projects.length - 1; renderTopBar(); loadAll(); }
+  closeModal(); toast('Project added');
+}
+
+async function saveBudget() {
+  const budget = parseFloat(document.getElementById('budget-input').value) || 0;
+  const p = projects[currentProjectIdx];
+  if (!p) return;
+  await sb.from('projects').update({ budget }).eq('id', p.id);
+  p.budget = budget;
+  renderTopBar();
+  renderStats();
+  toast('Budget saved');
+}
+
+// ── LOAD ALL DATA ──
+async function loadAll() {
+  const pid = projects[currentProjectIdx]?.id;
+  if (!pid) return;
+  const [pRes, vRes, sRes] = await Promise.all([
+    sb.from('payments').select('*').eq('project_id', pid).order('payment_date', { ascending: false }),
+    sb.from('vendors').select('*').eq('project_id', pid).order('name'),
+    sb.from('schedule_events').select('*').eq('project_id', pid).order('event_date')
+  ]);
+  payments = pRes.data || [];
+  vendors = vRes.data || [];
+  schedEvents = sRes.data || [];
+  renderAll();
+}
+
+function renderAll() { renderStats(); renderHomeTxn(); renderFinance(); renderSchedule(); renderVendors(); renderRecommendation(); }
+
+// ── STATS ──
+function renderStats() {
+  const p = projects[currentProjectIdx];
+  const budget = p?.budget || 0;
+  const paid = payments.filter(x => !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  const due = payments.filter(x => x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  document.getElementById('stat-total').textContent = fmtMoney(paid);
+  document.getElementById('stat-budget').textContent = fmtMoney(budget);
+  document.getElementById('stat-remain').textContent = fmtMoney(Math.max(0, budget - paid));
+  document.getElementById('stat-due').textContent = fmtMoney(due);
+  const ownerPaid = payments.filter(x => x.paid_by === 'owner' && !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  const contrPaid = payments.filter(x => x.paid_by === 'contractor' && !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  document.getElementById('fin-owner').textContent = fmtMoney(ownerPaid);
+  document.getElementById('fin-contractor').textContent = fmtMoney(contrPaid);
+  document.getElementById('fin-due').textContent = fmtMoney(due);
+}
+
+// ── HOME TRANSACTIONS ──
+function renderHomeTxn() {
+  const list = document.getElementById('home-txn-list');
+  const items = [...payments].slice(0, 10);
+  if (!items.length) { list.innerHTML = '<div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment below.</p></div>'; return; }
+  list.innerHTML = items.map(p => txnRow(p)).join('');
+}
+
+function txnRow(p) {
+  const vendorName = (vendors.find(v => v.id === p.vendor_id)?.name) || (p.payee_name || '—');
+  const icon = p.is_due ? 'due' : (p.paid_by === 'owner' ? 'owner' : 'contractor');
+  const initials = vendorName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  const badge = p.is_due ? '<span class="badge due">Due</span>' : (p.paid_by === 'owner' ? '<span class="badge owner">Owner</span>' : '<span class="badge contractor">Contractor</span>');
+  return `<div class="txn-item" onclick="openPayPanel('${p.id}')">
+    <div class="txn-icon ${icon}">${initials}</div>
+    <div class="txn-meta">
+      <div class="txn-name">${esc(vendorName)}</div>
+      <div class="txn-detail">${fmtDateShort(p.payment_date)}${p.invoice_number ? ' · Inv #' + esc(p.invoice_number) : ''}${p.method ? ' · ' + esc(p.method) : ''}</div>
+      ${p.note ? `<div class="txn-note">${esc(p.note)}</div>` : ''}
+    </div>
+    <div class="txn-right"><div class="txn-amt">${fmtMoney(p.amount)}</div>${badge}</div>
+  </div>`;
+}
+
+// ── FINANCE ──
+function filterFin(f) {
+  finFilter = f;
+  document.querySelectorAll('.fin-tab').forEach(t => t.classList.toggle('on', t.textContent.toLowerCase().trim() === f || (f === 'all' && t.textContent.trim() === 'All')));
+  renderFinance();
+}
+
+function renderFinance() {
+  let items = [...payments];
+  if (finFilter === 'owner') items = items.filter(x => x.paid_by === 'owner' && !x.is_due);
+  else if (finFilter === 'contractor') items = items.filter(x => x.paid_by === 'contractor' && !x.is_due);
+  else if (finFilter === 'due') items = items.filter(x => x.is_due);
+  const list = document.getElementById('fin-list');
+  if (!items.length) { list.innerHTML = '<div class="empty-state"><p>No entries in this category.</p></div>'; return; }
+  list.innerHTML = items.map(p => txnRow(p)).join('');
+}
+
+// ── SCHEDULE ──
+function renderSchedule() {
+  const list = document.getElementById('sched-list');
+  if (!schedEvents.length) { list.innerHTML = '<div class="empty-state"><span class="icon">📅</span><p>No events scheduled. Tap Add Event below.</p></div>'; return; }
+  const sorted = [...schedEvents].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+  list.innerHTML = sorted.map(e => {
+    const d = new Date(e.event_date + 'T12:00:00');
+    const status = e.status || 'pending';
+    const badgeCls = status === 'confirmed' ? 'done' : status === 'completed' ? 'done' : 'pending';
+    return `<div class="sched-item" onclick="openSchedPanel('${e.id}')">
+      <div class="sched-date"><div class="mon">${d.toLocaleString('en',{month:'short'})}</div><div class="day">${d.getDate()}</div></div>
+      <div class="sched-body">
+        <div class="sched-name">${esc(e.name)}</div>
+        <div class="sched-trade">${esc(e.trade || '')}${e.end_date ? ' · Est. done ' + fmtDateShort(e.end_date) : ''}</div>
+        ${e.note ? `<div class="sched-note">${esc(e.note)}</div>` : ''}
+      </div>
+      <div style="flex-shrink:0"><span class="badge ${badgeCls}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecommendation() {
+  const phases = ['Foundation & Excavation','Framing','Plumbing Rough-in','Electrical Rough-in','HVAC Rough-in','Insulation','Drywall','Flooring','Painting','Fixtures & Finishes','Final Inspection'];
+  const completed = schedEvents.filter(e => e.status === 'completed').length;
+  const phase = phases[Math.min(completed, phases.length - 1)];
+  const next = phases[Math.min(completed + 1, phases.length - 1)];
+  const rec = `Current phase: ${phase}. Next milestone: schedule ${next} contractor (typical lead time 5–10 days). Verify permits before proceeding.`;
+  document.getElementById('rec-text').textContent = rec;
+  document.getElementById('sched-rec').textContent = rec;
+}
+
+// ── VENDORS ──
+function renderVendors() {
+  const list = document.getElementById('vendor-list');
+  if (!vendors.length) { list.innerHTML = '<div class="empty-state"><span class="icon">👷</span><p>No vendors yet. Tap Add Vendor below.</p></div>'; return; }
+  const sorted = [...vendors].sort((a, b) => a.name.localeCompare(b.name));
+  list.innerHTML = sorted.map(v => {
+    const initials = v.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="vendor-item" onclick="openVendorPanel('${v.id}')">
+      <div class="vendor-avatar">${initials}</div>
+      <div class="vendor-info">
+        <div class="vendor-name">${esc(v.name)}</div>
+        <div class="vendor-trade">${esc(v.trade || '')}</div>
+        <div class="vendor-phone">${esc(v.phone || '')}</div>
+      </div>
+      <div class="vendor-chev">&#x203A;</div>
+    </div>`;
+  }).join('');
+}
+
+// ── PAYMENT MODAL ──
+function openPayModal(prefillVendorId = null) {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Make Payment';
+  const vOptions = vendors.map(v => `<option value="${v.id}" ${v.id === prefillVendorId ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+  const today = todayStr();
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><div class="field-lbl">Payee (from Vendors)</div>
+      <select class="field-input" id="fp-vendor"><option value="">— Select Vendor / Sub —</option>${vOptions}</select></div>
+    <div class="field"><div class="field-lbl">Or Quick Name (if not in list)</div><input class="field-input" id="fp-payee" placeholder="Payee name"></div>
+    <div class="field"><div class="field-lbl">Amount ($)</div>
+      <div class="field-input tap-to-edit" id="fp-amount-disp" onclick="openKP('fp-amount-disp','fp-amount-val')">Tap to enter</div>
+      <input type="hidden" id="fp-amount-val" value="0">
+      <div id="kp-wrap" class="hidden"></div></div>
+    <div class="field"><div class="field-lbl">Paid By</div>
+      <div class="seg">
+        <div class="seg-opt on owner" onclick="setSeg(this,'fp-paid-by','owner')">Owner</div>
+        <div class="seg-opt contractor" onclick="setSeg(this,'fp-paid-by','contractor')">Contractor</div>
+      </div>
+      <input type="hidden" id="fp-paid-by" value="owner"></div>
+    <div class="field"><div class="field-lbl">Bill Due (not yet paid)?</div>
+      <div class="seg">
+        <div class="seg-opt" onclick="setSeg(this,'fp-is-due','false')">No — Paid</div>
+        <div class="seg-opt on" onclick="setSeg(this,'fp-is-due','true')">Yes — Due</div>
+      </div>
+      <input type="hidden" id="fp-is-due" value="false"></div>
+    <div class="field-row2">
+      <div class="field"><div class="field-lbl">Payment Date</div>
+        <div class="field-input" id="fp-paydate-disp" onclick="openCal('fp-paydate-disp','fp-paydate-val')">${fmtDateShort(today)}</div>
+        <input type="hidden" id="fp-paydate-val" value="${today}">
+        <div id="cal-fp-paydate-disp" class="cal-wrap hidden"></div></div>
+      <div class="field"><div class="field-lbl">Invoice Date</div>
+        <div class="field-input" id="fp-invdate-disp" onclick="openCal('fp-invdate-disp','fp-invdate-val')">${fmtDateShort(today)}</div>
+        <input type="hidden" id="fp-invdate-val" value="${today}">
+        <div id="cal-fp-invdate-disp" class="cal-wrap hidden"></div></div>
+    </div>
+    <div class="field"><div class="field-lbl">Invoice Number</div><input class="field-input" id="fp-inv" placeholder="e.g. PP-2024"></div>
+    <div class="field"><div class="field-lbl">Payment Method</div>
+      <div class="seg">
+        <div class="seg-opt on" onclick="setSeg(this,'fp-method','Check')">Check</div>
+        <div class="seg-opt" onclick="setSeg(this,'fp-method','ACH')">ACH</div>
+        <div class="seg-opt" onclick="setSeg(this,'fp-method','CC')">CC</div>
+        <div class="seg-opt" onclick="setSeg(this,'fp-method','Cash')">Cash</div>
+      </div>
+      <input type="hidden" id="fp-method" value="Check"></div>
+    <div class="field"><div class="field-lbl">Note</div><textarea class="field-input" id="fp-note" placeholder="Quick note about this payment…"></textarea></div>
+    <button class="btn-save" onclick="savePayment()">Save Payment</button>
+    <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+  openModal();
+}
+
+async function savePayment() {
+  const pid = projects[currentProjectIdx]?.id;
+  const vendorId = v('fp-vendor') || null;
+  const payeeName = v('fp-payee');
+  const amount = parseFloat(document.getElementById('fp-amount-val').value) || 0;
+  const paidBy = v('fp-paid-by') || 'owner';
+  const isDue = v('fp-is-due') === 'true';
+  const payDate = v('fp-paydate-val') || todayStr();
+  const invDate = v('fp-invdate-val') || todayStr();
+  const inv = v('fp-inv');
+  const method = v('fp-method') || 'Check';
+  const note = v('fp-note');
+  if (!vendorId && !payeeName) { toast('Select a vendor or enter a payee name'); return; }
+  const row = { project_id: pid, vendor_id: vendorId, payee_name: payeeName, amount, paid_by: paidBy, is_due: isDue, payment_date: payDate, invoice_date: invDate, invoice_number: inv, method, note };
+  if (editingId) {
+    await sb.from('payments').update(row).eq('id', editingId);
+    toast('Payment updated');
+  } else {
+    await sb.from('payments').insert([row]);
+    toast('Payment saved');
+  }
+  closeModal(); await loadAll();
+}
+
+// ── VENDOR MODAL ──
+function openVendorModal(prefillId = null) {
+  editingId = null;
+  const existing = prefillId ? vendors.find(v => v.id === prefillId) : null;
+  document.getElementById('modal-title').textContent = existing ? 'Edit Vendor' : 'Add Vendor';
+  if (existing) editingId = existing.id;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><div class="field-lbl">Name</div><input class="field-input" id="fv-name" value="${esc(existing?.name||'')}" placeholder="Company or person name"></div>
+    <div class="field"><div class="field-lbl">Trade / Category</div><input class="field-input" id="fv-trade" value="${esc(existing?.trade||'')}" placeholder="e.g. Plumber, Electrician, Supplier"></div>
+    <div class="field"><div class="field-lbl">Phone</div><input class="field-input" id="fv-phone" type="tel" value="${esc(existing?.phone||'')}" placeholder="(310) 555-0000"></div>
+    <div class="field"><div class="field-lbl">Email</div><input class="field-input" id="fv-email" type="email" value="${esc(existing?.email||'')}" placeholder="contact@company.com"></div>
+    <div class="field"><div class="field-lbl">Address</div><input class="field-input" id="fv-addr" value="${esc(existing?.address||'')}" placeholder="Street, City, State"></div>
+    <div class="field"><div class="field-lbl">License Number</div><input class="field-input" id="fv-lic" value="${esc(existing?.license_number||'')}" placeholder="CA License #"></div>
+    <div class="field"><div class="field-lbl">Note</div><textarea class="field-input" id="fv-note" placeholder="Notes about this vendor…">${esc(existing?.note||'')}</textarea></div>
+    <button class="btn-save" onclick="saveVendor()">Save Vendor</button>
+    <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+  openModal();
+}
+
+async function saveVendor() {
+  const pid = projects[currentProjectIdx]?.id;
+  const row = { project_id: pid, name: v('fv-name'), trade: v('fv-trade'), phone: v('fv-phone'), email: v('fv-email'), address: v('fv-addr'), license_number: v('fv-lic'), note: v('fv-note') };
+  if (!row.name) { toast('Vendor name required'); return; }
+  if (editingId) { await sb.from('vendors').update(row).eq('id', editingId); toast('Vendor updated'); }
+  else { await sb.from('vendors').insert([row]); toast('Vendor added'); }
+  closeModal(); await loadAll();
+}
+
+// ── SCHEDULE MODAL ──
+function openSchedModal(prefillId = null) {
+  editingId = null;
+  const existing = prefillId ? schedEvents.find(e => e.id === prefillId) : null;
+  if (existing) editingId = existing.id;
+  const today = todayStr();
+  document.getElementById('modal-title').textContent = existing ? 'Edit Event' : 'Add Schedule Event';
+  const vOpts = vendors.map(v => `<option value="${v.id}" ${existing?.vendor_id === v.id ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+  const statusOpts = ['scheduled','confirmed','in-progress','completed','cancelled'].map(s =>
+    `<option value="${s}" ${existing?.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><div class="field-lbl">Contractor / Sub</div>
+      <select class="field-input" id="fe-vendor"><option value="">— Select —</option>${vOpts}</select></div>
+    <div class="field"><div class="field-lbl">Or Name</div><input class="field-input" id="fe-name" value="${esc(existing?.name||'')}" placeholder="Name or company"></div>
+    <div class="field"><div class="field-lbl">Trade / Work Type</div><input class="field-input" id="fe-trade" value="${esc(existing?.trade||'')}" placeholder="e.g. Plumbing, Framing"></div>
+    <div class="field-row2">
+      <div class="field"><div class="field-lbl">Start Date</div>
+        <div class="field-input" id="fe-start-disp" onclick="openCal('fe-start-disp','fe-start-val')">${fmtDateShort(existing?.event_date || today)}</div>
+        <input type="hidden" id="fe-start-val" value="${existing?.event_date || today}">
+        <div id="cal-fe-start-disp" class="cal-wrap hidden"></div></div>
+      <div class="field"><div class="field-lbl">Est. End Date</div>
+        <div class="field-input" id="fe-end-disp" onclick="openCal('fe-end-disp','fe-end-val')">${fmtDateShort(existing?.end_date || today)}</div>
+        <input type="hidden" id="fe-end-val" value="${existing?.end_date || today}">
+        <div id="cal-fe-end-disp" class="cal-wrap hidden"></div></div>
+    </div>
+    <div class="field"><div class="field-lbl">Status</div>
+      <select class="field-input" id="fe-status">${statusOpts}</select></div>
+    <div class="field"><div class="field-lbl">Note</div><textarea class="field-input" id="fe-note" placeholder="Notes, access instructions, reminders…">${esc(existing?.note||'')}</textarea></div>
+    <button class="btn-save" onclick="saveSchedEvent()">Save Event</button>
+    <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
+  openModal();
+}
+
+async function saveSchedEvent() {
+  const pid = projects[currentProjectIdx]?.id;
+  const vendorId = v('fe-vendor') || null;
+  const vendorName = vendorId ? (vendors.find(x => x.id === vendorId)?.name || '') : v('fe-name');
+  const row = { project_id: pid, vendor_id: vendorId, name: vendorName || v('fe-name'), trade: v('fe-trade'), event_date: v('fe-start-val'), end_date: v('fe-end-val'), status: v('fe-status') || 'scheduled', note: v('fe-note') };
+  if (!row.name) { toast('Name required'); return; }
+  if (editingId) { await sb.from('schedule_events').update(row).eq('id', editingId); toast('Event updated'); }
+  else { await sb.from('schedule_events').insert([row]); toast('Event scheduled'); }
+  closeModal(); await loadAll();
+}
+
+// ── PANELS ──
+function openPayPanel(id) {
+  const p = payments.find(x => x.id === id);
+  if (!p) return;
+  const vendorName = (vendors.find(v => v.id === p.vendor_id)?.name) || (p.payee_name || '—');
+  const badge = p.is_due ? '<span class="badge due">Bill Due</span>' : (p.paid_by === 'owner' ? '<span class="badge owner">Owner</span>' : '<span class="badge contractor">Contractor</span>');
+  document.getElementById('panel-title').textContent = vendorName;
+  document.getElementById('panel-body').innerHTML = `
+    <div class="panel-row"><div class="panel-lbl">Amount</div><div class="panel-val" style="font-size:22px;font-weight:700;color:var(--amber);">${fmtMoney(p.amount)}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Status</div><div class="panel-val">${badge}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Payment Date</div><div class="panel-val">${fmtDateShort(p.payment_date)}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Invoice Date</div><div class="panel-val">${fmtDateShort(p.invoice_date)}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Invoice #</div><div class="panel-val">${esc(p.invoice_number || '—')}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Method</div><div class="panel-val">${esc(p.method || '—')}</div></div>
+    ${p.note ? `<div class="panel-row"><div class="panel-lbl">Note</div><div class="panel-note">${esc(p.note)}</div></div>` : ''}
+    <div class="panel-actions">
+      <button class="panel-edit-btn" onclick="editPayment('${id}')">&#9998; Edit</button>
+      <button class="panel-del-btn" onclick="deleteRecord('payments','${id}')">Delete</button>
+    </div>`;
+  openPanel();
+}
+
+async function editPayment(id) {
+  closePanel();
+  const p = payments.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  openPayModal();
+  await new Promise(r => setTimeout(r, 50));
+  const vOpts = Array.from(document.getElementById('fp-vendor').options);
+  vOpts.forEach(o => { if (o.value === p.vendor_id) o.selected = true; });
+  setInputVal('fp-payee', p.payee_name || '');
+  document.getElementById('fp-amount-disp').textContent = fmtMoney(p.amount);
+  document.getElementById('fp-amount-val').value = p.amount || '0';
+  document.getElementById('fp-paid-by').value = p.paid_by || 'owner';
+  document.getElementById('fp-is-due').value = p.is_due ? 'true' : 'false';
+  document.getElementById('fp-paydate-val').value = p.payment_date || todayStr();
+  document.getElementById('fp-paydate-disp').textContent = fmtDateShort(p.payment_date);
+  document.getElementById('fp-invdate-val').value = p.invoice_date || todayStr();
+  document.getElementById('fp-invdate-disp').textContent = fmtDateShort(p.invoice_date);
+  setInputVal('fp-inv', p.invoice_number || '');
+  document.getElementById('fp-method').value = p.method || 'Check';
+  setInputVal('fp-note', p.note || '');
+}
+
+function openVendorPanel(id) {
+  const v2 = vendors.find(x => x.id === id);
+  if (!v2) return;
+  const initials = v2.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('panel-title').textContent = v2.name;
+  document.getElementById('panel-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <div class="vendor-avatar" style="width:50px;height:50px;font-size:16px;">${initials}</div>
+      <div><div style="font-size:14px;font-weight:700;">${esc(v2.name)}</div><div style="font-size:12px;color:var(--muted);">${esc(v2.trade||'')}</div></div>
+    </div>
+    ${v2.phone ? `<div class="panel-row"><div class="panel-lbl">Phone</div><div class="panel-val" style="color:var(--blue)"><a href="tel:${esc(v2.phone)}">${esc(v2.phone)}</a></div></div>` : ''}
+    ${v2.email ? `<div class="panel-row"><div class="panel-lbl">Email</div><div class="panel-val" style="color:var(--blue)"><a href="mailto:${esc(v2.email)}">${esc(v2.email)}</a></div></div>` : ''}
+    ${v2.address ? `<div class="panel-row"><div class="panel-lbl">Address</div><div class="panel-val">${esc(v2.address)}</div></div>` : ''}
+    ${v2.license_number ? `<div class="panel-row"><div class="panel-lbl">License #</div><div class="panel-val">${esc(v2.license_number)}</div></div>` : ''}
+    ${v2.note ? `<div class="panel-row"><div class="panel-lbl">Note</div><div class="panel-note">${esc(v2.note)}</div></div>` : ''}
+    <div class="panel-actions">
+      <button class="panel-edit-btn" onclick="closePanel();openVendorModal('${id}')">&#9998; Edit</button>
+      <button class="panel-del-btn" onclick="deleteRecord('vendors','${id}')">Delete</button>
+    </div>
+    <button class="btn-save" style="margin-top:10px;" onclick="closePanel();openPayModal('${id}')">+ Make Payment to ${esc(v2.name)}</button>`;
+  openPanel();
+}
+
+function openSchedPanel(id) {
+  const e = schedEvents.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('panel-title').textContent = e.name;
+  const statusBadge = `<span class="badge ${e.status === 'completed' || e.status === 'confirmed' ? 'done' : 'pending'}">${e.status || 'Scheduled'}</span>`;
+  document.getElementById('panel-body').innerHTML = `
+    <div class="panel-row"><div class="panel-lbl">Trade</div><div class="panel-val">${esc(e.trade||'—')}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Status</div><div class="panel-val">${statusBadge}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Start Date</div><div class="panel-val">${fmtDateShort(e.event_date)}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Est. Completion</div><div class="panel-val">${fmtDateShort(e.end_date)}</div></div>
+    ${e.note ? `<div class="panel-row"><div class="panel-lbl">Note</div><div class="panel-note">${esc(e.note)}</div></div>` : ''}
+    <div class="panel-actions">
+      <button class="panel-edit-btn" onclick="closePanel();openSchedModal('${e.id}')">&#9998; Edit</button>
+      <button class="panel-del-btn" onclick="deleteRecord('schedule_events','${e.id}')">Delete</button>
+    </div>`;
+  openPanel();
+}
+
+// ── DELETE ──
+async function deleteRecord(table, id) {
+  if (!confirm('Delete this record? This cannot be undone.')) return;
+  await sb.from(table).delete().eq('id', id);
+  closePanel(); await loadAll(); toast('Deleted');
+}
+
+// ── SORT TOGGLE ──
+function toggleSort(ctx) {
+  sortAsc = !sortAsc;
+  if (ctx === 'home' || ctx === 'finance') {
+    payments.sort((a, b) => sortAsc ? new Date(a.payment_date) - new Date(b.payment_date) : new Date(b.payment_date) - new Date(a.payment_date));
+    renderHomeTxn(); renderFinance();
+  } else if (ctx === 'sched') {
+    schedEvents.sort((a, b) => sortAsc ? new Date(a.event_date) - new Date(b.event_date) : new Date(b.event_date) - new Date(a.event_date));
+    renderSchedule();
+  } else if (ctx === 'vendors') {
+    vendors.sort((a, b) => sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+    renderVendors();
+  }
+}
+
+// ── KEYPAD ──
+function openKP(dispId, valId) {
+  kpTarget = { disp: dispId, val: valId };
+  kpRaw = document.getElementById(valId).value || '0';
+  kpExpr = '';
+  kpHasDot = kpRaw.includes('.');
+  const wrap = document.getElementById('kp-wrap');
+  wrap.classList.remove('hidden');
+  wrap.classList.add('on');
+  wrap.innerHTML = buildKP();
+  renderKP();
+  kpOnAccept = () => {
+    const amt = parseFloat(kpRaw) || 0;
+    document.getElementById(valId).value = amt;
+    document.getElementById(dispId).textContent = fmtMoney(amt);
+    wrap.classList.add('hidden');
+    wrap.classList.remove('on');
+    wrap.innerHTML = '';
+  };
+}
+
+function buildKP() {
+  return `<div class="kp-display-area">
+    <span class="kp-expr" id="kp-expr-disp"></span>
+    <span class="kp-dollar">$</span>
+    <span class="kp-amount" id="kp-amt-disp">0</span>
+    <span class="kp-cursor"></span>
+  </div>
+  <div class="kp-grid" id="kp-grid">
+    ${kpKey('1','')+''+kpKey('2','ABC')+''+kpKey('3','DEF')}
+    ${kpKey('4','GHI')+''+kpKey('5','JKL')+''+kpKey('6','MNO')}
+    ${kpKey('7','PQRS')+''+kpKey('8','TUV')+''+kpKey('9','WXYZ')}
+    <div class="key kop" data-kv="+"><span class="knum">+</span></div>
+    ${kpKey('0','')}
+    <div class="key kop" data-kv="back"><span class="knum">&#x232B;</span></div>
+    <div class="key kop" data-kv="-"><span class="knum">&minus;</span></div>
+    <div class="key kop" data-kv="."><span class="knum">.</span></div>
+    <div class="key kaccept" data-kv="accept"><span class="knum">&#x2713;</span></div>
+    <div class="key kcancel" data-kv="cancel"><span class="knum">&#x2715; Cancel</span></div>
+    <div class="key kop" data-kv="="><span class="knum">=</span></div>
+  </div>`;
+}
+
+function kpKey(n, sub) {
+  return `<div class="key" data-kv="${n}"><span class="knum">${n}</span>${sub ? `<span class="klet">${sub}</span>` : ''}</div>`;
+}
+
+function renderKP() {
+  const d = document.getElementById('kp-amt-disp');
+  const e = document.getElementById('kp-expr-disp');
+  if (d) d.textContent = fmt$(kpRaw);
+  if (e) e.textContent = kpExpr;
+}
+
+document.addEventListener('click', function(ev) {
+  const k = ev.target.closest('[data-kv]');
+  if (!k) return;
+  const kv = k.dataset.kv;
+  if (kv === 'cancel') {
+    const wrap = document.getElementById('kp-wrap');
+    if (wrap) { wrap.classList.add('hidden'); wrap.classList.remove('on'); wrap.innerHTML = ''; }
+    return;
+  }
+  if (kv === 'accept') { if (kpOnAccept) kpOnAccept(); return; }
+  if (kv === '=') {
+    if (kpExpr) {
+      try { const r = Math.round(Function('"use strict";return(' + kpExpr + kpRaw + ')')() * 100) / 100;
+        if (isFinite(r)) { kpRaw = String(r); kpExpr = ''; kpHasDot = kpRaw.includes('.'); } } catch(x) {}
+    }
+    renderKP(); return;
+  }
+  if (kv === 'back') {
+    kpRaw = kpRaw.length > 1 ? kpRaw.slice(0,-1) : '0';
+    kpHasDot = kpRaw.includes('.');
+    renderKP(); return;
+  }
+  if (kv === '+' || kv === '-') {
+    kpExpr = kpExpr + kpRaw + kv; kpRaw = '0'; kpHasDot = false;
+    renderKP(); return;
+  }
+  if (kv === '.') { if (!kpHasDot) { kpRaw += '.'; kpHasDot = true; } renderKP(); return; }
+  if (kpRaw === '0' && kv !== '.') kpRaw = kv;
+  else if (kpRaw.replace('.','').length < 10) kpRaw += kv;
+  renderKP();
+});
+
+// ── CALENDAR ──
+function openCal(dispId, valId) {
+  const allCals = document.querySelectorAll('.cal-wrap');
+  allCals.forEach(c => { if (c.id !== 'cal-' + dispId) c.classList.add('hidden'); });
+  const wrap = document.getElementById('cal-' + dispId);
+  if (!wrap) return;
+  const isHidden = wrap.classList.contains('hidden');
+  if (!isHidden) { wrap.classList.add('hidden'); return; }
+  calTarget = { disp: dispId, val: valId };
+  const cur = document.getElementById(valId).value;
+  if (cur) { const d = new Date(cur + 'T12:00:00'); calYear = d.getFullYear(); calMonth = d.getMonth(); calSelected = cur; }
+  else { const n = new Date(); calYear = n.getFullYear(); calMonth = n.getMonth(); calSelected = null; }
+  renderCal(wrap);
+  wrap.classList.remove('hidden');
+}
+
+function renderCal(wrap) {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = todayStr();
+  let cells = '';
+  for (let i = 0; i < firstDay; i++) cells += '<div class="cal-cell"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = calYear + '-' + pad(calMonth+1) + '-' + pad(d);
+    const cls = (ds === today ? 'today ' : '') + (ds === calSelected ? 'selected' : '');
+    cells += `<div class="cal-cell ${cls}" onclick="calPick('${ds}')">${d}</div>`;
+  }
+  wrap.innerHTML = `<div class="cal-nav">
+    <button class="cal-nav-btn" onclick="calMove(-1,event)">&#8249;</button>
+    <div class="cal-nav-title">${months[calMonth]} ${calYear}</div>
+    <button class="cal-nav-btn" onclick="calMove(1,event)">&#8250;</button>
+  </div>
+  <div class="cal-days-hdr">${days.map(d => `<span>${d}</span>`).join('')}</div>
+  <div class="cal-grid">${cells}</div>
+  <div class="cal-accept"><button class="cal-accept-btn" onclick="calAccept(event)">&#10003; Done</button></div>`;
+}
+
+function calMove(dir, ev) {
+  ev.stopPropagation();
+  calMonth += dir;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  const wrap = document.getElementById('cal-' + calTarget?.disp);
+  if (wrap) renderCal(wrap);
+}
+
+function calPick(ds) {
+  calSelected = ds;
+  const wrap = document.getElementById('cal-' + calTarget?.disp);
+  if (wrap) renderCal(wrap);
+}
+
+function calAccept(ev) {
+  ev.stopPropagation();
+  if (!calSelected || !calTarget) return;
+  document.getElementById(calTarget.val).value = calSelected;
+  document.getElementById(calTarget.disp).textContent = fmtDateShort(calSelected);
+  const wrap = document.getElementById('cal-' + calTarget.disp);
+  if (wrap) wrap.classList.add('hidden');
+}
+
+// ── PDF EXPORT ──
+async function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  const p = projects[currentProjectIdx];
+  const now = new Date().toLocaleDateString('en-US');
+  doc.setFillColor(11, 31, 58);
+  doc.rect(0, 0, 216, 30, 'F');
+  doc.setTextColor(245, 166, 35);
+  doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('BuildTrack Construction Report', 14, 13);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(`Project: ${p?.name || ''}   |   Generated: ${now}`, 14, 22);
+  doc.setTextColor(0, 0, 0);
+  let y = 36;
+  const paid = payments.filter(x => !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  const due = payments.filter(x => x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  const ownerPaid = payments.filter(x => x.paid_by === 'owner' && !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  const contrPaid = payments.filter(x => x.paid_by === 'contractor' && !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text('Financial Summary', 14, y); y += 7;
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(`Budget: ${fmtMoney(p?.budget||0)}   |   Total Paid: ${fmtMoney(paid)}   |   Bills Due: ${fmtMoney(due)}`, 14, y); y += 5;
+  doc.text(`Owner Paid: ${fmtMoney(ownerPaid)}   |   Contractor Paid: ${fmtMoney(contrPaid)}`, 14, y); y += 10;
+  if (payments.length) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('Payment Ledger', 14, y); y += 4;
+    doc.autoTable({
+      startY: y,
+      head: [['Date','Payee','Amount','Paid By','Method','Invoice #','Note']],
+      body: payments.map(x => [
+        fmtDateShort(x.payment_date),
+        vendors.find(v => v.id === x.vendor_id)?.name || x.payee_name || '—',
+        fmtMoney(x.amount),
+        x.is_due ? 'DUE' : (x.paid_by || '—'),
+        x.method || '—',
+        x.invoice_number || '—',
+        (x.note || '').slice(0,40)
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [11, 31, 58], textColor: [245, 166, 35], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+  if (vendors.length) {
+    if (y > 220) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('Vendors & Subcontractors', 14, y); y += 4;
+    doc.autoTable({
+      startY: y,
+      head: [['Name','Trade','Phone','Email','License #']],
+      body: vendors.map(x => [x.name, x.trade||'—', x.phone||'—', x.email||'—', x.license_number||'—']),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [11, 31, 58], textColor: [245, 166, 35], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+  if (schedEvents.length) {
+    if (y > 220) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('Schedule', 14, y); y += 4;
+    doc.autoTable({
+      startY: y,
+      head: [['Contractor','Trade','Start','Est. End','Status','Note']],
+      body: schedEvents.map(x => [x.name, x.trade||'—', fmtDateShort(x.event_date), fmtDateShort(x.end_date), x.status||'—', (x.note||'').slice(0,40)]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [11, 31, 58], textColor: [245, 166, 35], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 14, right: 14 }
+    });
+  }
+  const filename = `BuildTrack_${(p?.name||'Project').replace(/[^a-z0-9]/gi,'_')}_${now.replace(/\//g,'-')}.pdf`;
+  doc.save(filename);
+  toast('PDF exported');
+}
+
+// ── TAB NAVIGATION ──
+function showTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.fab-area').forEach(f => f.classList.add('hidden'));
+  document.getElementById('page-' + tab).classList.add('on');
+  document.querySelector(`.nav-tab[data-tab="${tab}"]`).classList.add('on');
+  document.getElementById('fab-' + tab).classList.remove('hidden');
+}
+
+// ── MODAL / PANEL HELPERS ──
+function openModal() { document.getElementById('modal-overlay').classList.add('on'); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('on'); editingId = null; }
+function openPanel() {
+  document.getElementById('panel-overlay').classList.add('on');
+  document.getElementById('panel').classList.add('on');
+}
+function closePanel() {
+  document.getElementById('panel-overlay').classList.remove('on');
+  document.getElementById('panel').classList.remove('on');
+}
+
+// ── UTILITIES ──
+function v(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+function setInputVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtMoney(n) { return '$' + (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmt$(s) { const n = parseFloat(s); return isNaN(n) ? s : n.toLocaleString('en-US', { minimumFractionDigits: s.endsWith('.') ? 0 : (s.split('.')[1]||'').length, maximumFractionDigits: 2 }); }
+function fmtDateShort(s) { if (!s) return '—'; const d = new Date(s + (s.length === 10 ? 'T12:00:00' : '')); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function setSeg(el, hiddenId, val) {
+  const parent = el.closest('.seg');
+  parent.querySelectorAll('.seg-opt').forEach(o => o.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById(hiddenId).value = val;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── BOOT — resume session or show PIN screen ──
+(function boot() {
+  const saved = sessionStorage.getItem('bt_user');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      currentRole = currentUser.role || 'owner';
+      initApp(); return;
+    } catch(e) { sessionStorage.removeItem('bt_user'); }
+  }
+  // show PIN screen (already visible by default)
+})();
+</script>
+</body>
+</html>
