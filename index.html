@@ -410,7 +410,7 @@ textarea.field-input{resize:vertical;min-height:72px;}
       <svg viewBox="0 0 24 24"><path d="M3 12L12 4l9 8"/><path d="M9 21V12h6v9"/><path d="M3 12v9h18V12"/></svg>Home
     </div>
     <div class="nav-tab" data-tab="finance" onclick="showTab('finance')">
-      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>Finance
+      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>Transactions
     </div>
     <div class="nav-tab" data-tab="schedule" onclick="showTab('schedule')">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Sched
@@ -449,7 +449,12 @@ textarea.field-input{resize:vertical;min-height:72px;}
           </div>
         </div>
       </div>
-      <button class="fab-primary" style="width:100%;margin-bottom:12px;" onclick="openPayModal()">+ Make Payment</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <button class="fab-primary" style="font-size:13px;padding:11px 6px;" onclick="openPayModal()">+ Make Payment</button>
+        <button class="fab-primary" style="font-size:13px;padding:11px 6px;" onclick="openVendorModal()">+ Add Vendor</button>
+        <button class="fab-primary" style="font-size:13px;padding:11px 6px;" onclick="openSchedModal()">+ Add Schedule</button>
+        <button class="fab-primary" style="font-size:13px;padding:11px 6px;" onclick="exportPDF()">+ Export PDF</button>
+      </div>
       <div class="card">
         <div class="sec-hdr">
           <div class="sec-hdr-label">Recent Payments</div>
@@ -476,40 +481,12 @@ textarea.field-input{resize:vertical;min-height:72px;}
             <span class="search-clear" onclick="clearSearch('home')">&#xD7;</span>
           </div>
         </div>
-        <div id="home-txn-list"><div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment below.</p></div></div>
+        <div id="home-txn-list"><div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment above.</p></div></div>
       </div>
     </div>
 
     <!-- ── FINANCE ── -->
     <div id="page-finance" class="page">
-      <div class="pdf-btn" onclick="exportPDF()">&#x21E9; Export Full PDF Report</div>
-      <div class="stat-grid">
-        <div class="stat-card" style="background:var(--owner-lt);"><div class="stat-val" id="fin-owner" style="color:var(--owner);">$0</div><div class="stat-lbl" style="color:var(--owner);opacity:0.75;">Owner Paid</div></div>
-        <div class="stat-card" style="background:var(--contractor-lt);"><div class="stat-val" id="fin-contractor" style="color:var(--contractor);">$0</div><div class="stat-lbl" style="color:var(--contractor);opacity:0.75;">Contractor Paid</div></div>
-        <div class="stat-card red"><div class="stat-val" id="fin-due">$0</div><div class="stat-lbl">Outstanding Bills</div></div>
-        <div class="stat-card" style="background:var(--navy);"><div class="stat-val" id="fin-adv-balance" style="color:var(--gold);">$0</div><div class="stat-lbl" style="color:rgba(255,255,255,0.6);">Advance Fund Bal.</div></div>
-      </div>
-
-      <!-- ── ADVANCE FUND ── -->
-      <div class="card">
-        <div class="sec-hdr">
-          <div class="sec-hdr-label">Advance Fund</div>
-          <div class="sort-btn" onclick="openAdvanceModal()">+ Record Advance</div>
-        </div>
-        <div class="advance-card">
-          <div class="advance-card-top">
-            <div>
-              <div class="advance-card-lbl">Current Balance</div>
-              <div class="advance-card-bal" id="adv-balance">$0</div>
-              <div class="advance-card-sub" id="adv-sub">held by Contractor for vendor payments</div>
-            </div>
-          </div>
-          <div class="advance-mini-row">
-            <div class="advance-mini"><div class="advance-mini-val" id="adv-total">$0</div><div class="advance-mini-lbl">Total Advanced</div></div>
-            <div class="advance-mini"><div class="advance-mini-val" id="adv-drawn">$0</div><div class="advance-mini-lbl">Drawn Down</div></div>
-          </div>
-        </div>
-      </div>
 
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:0;flex-wrap:wrap;">
         <div class="fin-tabs" style="flex:1;margin-bottom:0;min-width:200px;">
@@ -927,33 +904,18 @@ function renderStats() {
   document.getElementById('stat-budget').textContent = fmtMoney(budget);
   document.getElementById('stat-remain').textContent = fmtMoney(Math.max(0, budget - paid));
   document.getElementById('stat-due').textContent = fmtMoney(due);
-  const ownerPaid = payments.filter(x => x.paid_by === 'owner' && !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
-  const contrPaid = payments.filter(x => x.paid_by === 'contractor' && !x.is_due).reduce((s, x) => s + (x.amount || 0), 0);
-  document.getElementById('fin-owner').textContent = fmtMoney(ownerPaid);
-  document.getElementById('fin-contractor').textContent = fmtMoney(contrPaid);
-  document.getElementById('fin-due').textContent = fmtMoney(due);
 
-  // Advance fund stats — Home card + Finance section
+  // Advance fund stats — Home card only (Transactions page no longer duplicates these;
+  // card stays visible at all times — even at $0 — since its "+ Record Advance" button
+  // is now the only entry point for recording a project's first advance)
   const adv = advanceTotals();
   const homeCard = document.getElementById('home-advance-card');
   if (homeCard) {
-    if (adv.advancesIn > 0) {
-      homeCard.style.display = 'block';
-      setMoneyShrink('home-advance-balance', adv.balance, 11);
-      setMoneyShrink('home-advance-total', adv.advancesIn, 9);
-      setMoneyShrink('home-advance-drawn', adv.drawsOut, 9);
-    } else {
-      homeCard.style.display = 'none';
-    }
+    homeCard.style.display = 'block';
+    setMoneyShrink('home-advance-balance', adv.balance, 11);
+    setMoneyShrink('home-advance-total', adv.advancesIn, 9);
+    setMoneyShrink('home-advance-drawn', adv.drawsOut, 9);
   }
-  const advBal = document.getElementById('adv-balance');
-  if (advBal) {
-    advBal.textContent = fmtMoney(adv.balance);
-    document.getElementById('adv-total').textContent = fmtMoney(adv.advancesIn);
-    document.getElementById('adv-drawn').textContent = fmtMoney(adv.drawsOut);
-  }
-  const finAdvBal = document.getElementById('fin-adv-balance');
-  if (finAdvBal) finAdvBal.textContent = fmtMoney(adv.balance);
 }
 
 function getAdvanceLedgerEntries() {
@@ -989,7 +951,7 @@ function ledgerRow(e) {
 // ── HOME TRANSACTIONS ──
 function renderHomeTxn() {
   const list = document.getElementById('home-txn-list');
-  if (!payments.length) { list.innerHTML = '<div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment below.</p></div>'; return; }
+  if (!payments.length) { list.innerHTML = '<div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment above.</p></div>'; return; }
 
   const q = (document.getElementById('search-input-home')?.value || '').trim().toLowerCase();
   let items = [...payments];
