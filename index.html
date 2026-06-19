@@ -44,10 +44,15 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
   --contractor-text:#FFFFFF;
   --radius:10px;
   --radius-sm:7px;
+  /* ── PAGE BACKGROUND THEME ── */
+  --bg-page:#FFF4C2;
+  --bg-page-deep:#FFE588;
+  --band:#FFEFA8;
+  --card-border-y:#E8C84A;
 }
 
 /* ── LAYOUT ── */
-#app{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;background:var(--white);position:relative;overflow:hidden;}
+#app{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;background:var(--bg-page);position:relative;overflow:hidden;}
 
 /* ── TOP BAR ── */
 #topbar{background:var(--navy);padding:14px 14px 0;flex-shrink:0;}
@@ -55,9 +60,10 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .tb-appname{font-size:11px;font-weight:600;color:var(--gold);letter-spacing:0.6px;text-transform:uppercase;}
 .tb-right{display:flex;align-items:center;gap:8px;}
 .tb-add-proj{display:flex;align-items:center;gap:4px;background:rgba(245,166,35,0.18);border:1px solid rgba(245,166,35,0.45);border-radius:6px;padding:5px 10px;color:var(--gold);font-size:11px;font-weight:600;}
-.tb-chevrons{display:flex;flex-direction:column;gap:0;cursor:pointer;padding:2px 4px;}
+.tb-row2{display:flex;align-items:center;gap:7px;margin-top:7px;}
+.tb-chevrons{display:flex;flex-direction:column;gap:0;cursor:pointer;padding:2px 4px;flex-shrink:0;}
 .tb-chevrons span{font-size:16px;color:rgba(255,255,255,0.65);line-height:1.15;display:block;}
-.tb-proj-name{font-size:17px;font-weight:600;color:#fff;margin-top:7px;}
+.tb-proj-name{font-size:17px;font-weight:600;color:#fff;margin-top:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tb-proj-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;margin-bottom:8px;}
 .tb-dots{display:flex;gap:5px;padding-bottom:10px;}
 .tb-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.22);}
@@ -71,20 +77,37 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .nav-tab.on{color:var(--amber);border-bottom-color:var(--amber);}
 
 /* ── MAIN CONTENT ── */
-#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;background:var(--bg-page);}
 
 /* ── CARDS & SECTIONS ── */
-.page{display:none;padding:14px;}
+.page{display:none;padding:14px;background:var(--bg-page);}
 .page.on{display:block;}
-.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.card{background:var(--white);border:1px solid var(--card-border-y);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
 .card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
-.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-.sec-hdr-label{font-size:13px;font-weight:600;color:var(--text);}
-.sort-btn{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);padding:4px 8px;border:1px solid var(--border);border-radius:5px;}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:6px;flex-wrap:wrap;}
+.sec-hdr-label{font-size:13px;font-weight:600;color:var(--text);flex:1;min-width:0;}
+.sec-hdr-tools{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.icon-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--white);color:var(--muted);flex-shrink:0;cursor:pointer;}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.icon-btn.on{background:var(--amber-lt);border-color:var(--amber);color:var(--amber);}
+.sort-btn{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);padding:4px 8px;border:1px solid var(--border);border-radius:5px;position:relative;cursor:pointer;background:var(--white);}
+.btn-add-sm{display:flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--gold);background:var(--navy);padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;cursor:pointer;}
+.sort-dropdown{position:absolute;top:calc(100% + 4px);right:0;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 14px rgba(0,0,0,0.12);min-width:148px;z-index:30;overflow:hidden;display:none;}
+.sort-dropdown.on{display:block;}
+.sort-opt{padding:9px 12px;font-size:12px;color:var(--text);display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.sort-opt:hover{background:var(--surface);}
+.sort-opt.on{color:var(--amber);font-weight:700;background:var(--amber-lt);}
+.search-bar-wrap{margin-bottom:10px;display:none;}
+.search-bar-wrap.on{display:block;}
+.search-bar{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;}
+.search-bar svg{width:15px;height:15px;stroke:var(--muted);fill:none;stroke-width:2;flex-shrink:0;}
+.search-bar input{flex:1;background:transparent;font-size:13px;color:var(--text);}
+.search-bar input::placeholder{color:var(--muted);}
+.search-clear{font-size:16px;color:var(--muted);padding:0 2px;cursor:pointer;}
 
 /* ── STATS GRID ── */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
-.stat-card{background:var(--surface);border-radius:var(--radius-sm);padding:11px 13px;}
+.stat-card{background:var(--surface);border:1px solid var(--card-border-y);border-radius:var(--radius-sm);padding:11px 13px;}
 .stat-val{font-size:20px;font-weight:700;color:var(--text);}
 .stat-lbl{font-size:11px;color:var(--muted);margin-top:2px;}
 .stat-card.amber .stat-val{color:var(--amber);}
@@ -93,7 +116,8 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .stat-card.red .stat-val{color:var(--red);}
 
 /* ── TRANSACTION LIST ── */
-.txn-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.txn-item{display:flex;align-items:center;gap:10px;padding:10px 8px;margin:0 -8px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+.txn-item:nth-child(even){background:var(--band);}
 .txn-item:last-child{border-bottom:none;}
 .txn-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;font-weight:700;}
 .txn-icon.owner{background:var(--owner);color:var(--owner-text);}
@@ -113,7 +137,8 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .badge.pending{background:#FFF3E0;color:#8B5E00;}
 
 /* ── VENDOR LIST ── */
-.vendor-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.vendor-item{display:flex;align-items:center;gap:10px;padding:10px 8px;margin:0 -8px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+.vendor-item:nth-child(even){background:var(--band);}
 .vendor-item:last-child{border-bottom:none;}
 .vendor-avatar{width:38px;height:38px;border-radius:50%;background:var(--slate-lt);color:var(--slate);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
 .vendor-info{flex:1;min-width:0;}
@@ -133,8 +158,11 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .vendor-chev{color:var(--muted);font-size:18px;line-height:1;}
 
 /* ── SCHEDULE ── */
-.sched-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.sched-item{display:flex;gap:10px;padding:10px 8px;margin:0 -8px;border-bottom:1px solid var(--border);cursor:pointer;flex-direction:column;border-radius:6px;}
+.sched-item:nth-child(even){background:var(--band);}
 .sched-item:last-child{border-bottom:none;}
+.sched-item.sunk{opacity:0.6;}
+.sched-top{display:flex;gap:10px;}
 .sched-date{background:var(--navy);color:#fff;border-radius:var(--radius-sm);padding:6px 9px;text-align:center;min-width:46px;flex-shrink:0;}
 .sched-date .mon{font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;}
 .sched-date .day{font-size:19px;font-weight:700;line-height:1.1;}
@@ -142,6 +170,12 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .sched-name{font-size:13px;font-weight:600;color:var(--text);}
 .sched-trade{font-size:11px;color:var(--muted);margin-top:1px;}
 .sched-note{font-size:11px;color:var(--muted);background:var(--surface);border-radius:5px;padding:4px 8px;margin-top:5px;border-left:2px solid var(--amber);}
+.sched-progress-wrap{margin-top:8px;}
+.sched-progress-track{width:100%;height:6px;background:var(--border);border-radius:4px;overflow:hidden;}
+.sched-progress-fill{height:100%;border-radius:4px;background:var(--amber);transition:width 0.25s;}
+.sched-progress-fill.done{background:var(--green);}
+.sched-progress-fill.cancelled{background:var(--red);}
+.sched-progress-lbl{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:3px;}
 
 /* ── RECOMMEND BOX ── */
 .rec-box{background:var(--amber-lt);border-radius:var(--radius);padding:11px 13px;margin-bottom:12px;border-left:3px solid var(--amber);}
@@ -246,7 +280,8 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .advance-mini-val{font-size:14px;font-weight:700;color:#fff;}
 .advance-mini-lbl{font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;}
 .advance-record-btn{background:rgba(245,166,35,0.18);border:1px solid rgba(245,166,35,0.45);color:var(--gold);border-radius:7px;padding:8px;font-size:12px;font-weight:700;text-align:center;margin-top:10px;cursor:pointer;}
-.ledger-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.ledger-item{display:flex;align-items:center;gap:10px;padding:9px 8px;margin:0 -8px;border-bottom:1px solid var(--border);border-radius:6px;}
+.ledger-item:nth-child(even){background:var(--band);}
 .ledger-item:last-child{border-bottom:none;}
 .ledger-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
 .ledger-icon.in{background:var(--green-lt);color:var(--green);}
@@ -261,7 +296,7 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .ledger-bal{font-size:10px;color:var(--muted);margin-top:1px;}
 
 /* ── PDF BUTTON ── */
-.pdf-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--slate-lt);color:var(--slate);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:600;width:100%;margin-bottom:14px;}
+.pdf-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--slate-lt);color:var(--slate);border:1px solid var(--card-border-y);border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:600;width:100%;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
 
 /* ── EMPTY STATE ── */
 .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
@@ -344,13 +379,15 @@ textarea.field-input{resize:vertical;min-height:72px;}
       <div class="tb-appname">&#9776; BuildTrack</div>
       <div class="tb-right">
         <button class="tb-add-proj" onclick="openAddProject()">+ Project</button>
-        <div class="tb-chevrons" onclick="cycleProject(-1)">
-          <span>&#8963;</span>
-          <span onclick="cycleProject(1);event.stopPropagation();">&#8964;</span>
-        </div>
       </div>
     </div>
-    <div class="tb-proj-name" id="tb-proj-name" onclick="openEditProject()" style="cursor:pointer;" title="Tap to edit project">Loading… <span style="font-size:12px;opacity:0.55;">✎</span></div>
+    <div class="tb-row2">
+      <div class="tb-chevrons" onclick="cycleProject(-1)">
+        <span>&#8963;</span>
+        <span onclick="cycleProject(1);event.stopPropagation();">&#8964;</span>
+      </div>
+      <div class="tb-proj-name" id="tb-proj-name" onclick="openEditProject()" style="cursor:pointer;" title="Tap to edit project">Loading… <span style="font-size:12px;opacity:0.55;">✎</span></div>
+    </div>
     <div class="tb-proj-sub" id="tb-proj-sub"></div>
     <div class="tb-dots" id="tb-dots"></div>
   </div>
@@ -398,14 +435,32 @@ textarea.field-input{resize:vertical;min-height:72px;}
           <div class="advance-mini"><div class="advance-mini-val" id="home-advance-drawn">$0</div><div class="advance-mini-lbl">Drawn Down</div></div>
         </div>
       </div>
-      <div class="rec-box">
-        <div class="rec-label">Next up</div>
-        <div class="rec-text" id="rec-text">Loading project recommendations…</div>
-      </div>
+      <button class="fab-primary" style="width:100%;margin-bottom:12px;" onclick="openPayModal()">+ Make Payment</button>
       <div class="card">
         <div class="sec-hdr">
           <div class="sec-hdr-label">Recent Payments</div>
-          <div class="sort-btn" onclick="toggleSort('home')">&#x21F5; Date</div>
+          <div class="sec-hdr-tools">
+            <div class="icon-btn" id="search-toggle-home" onclick="toggleSearchBar('home')" title="Search">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <div class="sort-btn" onclick="toggleSortMenu('home', event)">
+              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 7h13M3 12h9M3 17h5"/><path d="M21 7v10M21 17l-3-3M21 17l3-3"/></svg>
+              <span id="sort-lbl-home">Date</span>
+              <div class="sort-dropdown" id="sort-menu-home">
+                <div class="sort-opt on" data-mode="date-desc" onclick="setSortMode('home','date-desc',event)">Newest first</div>
+                <div class="sort-opt" data-mode="date-asc" onclick="setSortMode('home','date-asc',event)">Oldest first</div>
+                <div class="sort-opt" data-mode="az" onclick="setSortMode('home','az',event)">A – Z</div>
+                <div class="sort-opt" data-mode="za" onclick="setSortMode('home','za',event)">Z – A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="search-bar-wrap" id="search-wrap-home">
+          <div class="search-bar">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="search-input-home" placeholder="Search payments…" oninput="renderHomeTxn()">
+            <span class="search-clear" onclick="clearSearch('home')">&#xD7;</span>
+          </div>
         </div>
         <div id="home-txn-list"><div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment below.</p></div></div>
       </div>
@@ -456,14 +511,32 @@ textarea.field-input{resize:vertical;min-height:72px;}
 
     <!-- ── SCHEDULE ── -->
     <div id="page-schedule" class="page">
-      <div class="rec-box">
-        <div class="rec-label">&#128161; Recommendation</div>
-        <div class="rec-text" id="sched-rec">Based on your current phase, review upcoming milestone requirements.</div>
-      </div>
       <div class="card">
         <div class="sec-hdr">
           <div class="sec-hdr-label">Scheduled Events</div>
-          <div class="sort-btn" onclick="toggleSort('sched')">&#x21F5; Date</div>
+          <div class="sec-hdr-tools">
+            <div class="icon-btn" id="search-toggle-sched" onclick="toggleSearchBar('sched')" title="Search">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <div class="sort-btn" onclick="toggleSortMenu('sched', event)">
+              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 7h13M3 12h9M3 17h5"/><path d="M21 7v10M21 17l-3-3M21 17l3-3"/></svg>
+              <span id="sort-lbl-sched">Date</span>
+              <div class="sort-dropdown" id="sort-menu-sched">
+                <div class="sort-opt on" data-mode="date-asc" onclick="setSortMode('sched','date-asc',event)">Soonest first</div>
+                <div class="sort-opt" data-mode="date-desc" onclick="setSortMode('sched','date-desc',event)">Latest first</div>
+                <div class="sort-opt" data-mode="az" onclick="setSortMode('sched','az',event)">A – Z</div>
+                <div class="sort-opt" data-mode="za" onclick="setSortMode('sched','za',event)">Z – A</div>
+              </div>
+            </div>
+            <div class="btn-add-sm" onclick="openSchedModal()">+ Add Event</div>
+          </div>
+        </div>
+        <div class="search-bar-wrap" id="search-wrap-sched">
+          <div class="search-bar">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="search-input-sched" placeholder="Search events…" oninput="renderSchedule()">
+            <span class="search-clear" onclick="clearSearch('sched')">&#xD7;</span>
+          </div>
         </div>
         <div id="sched-list"><div class="empty-state"><span class="icon">📅</span><p>No events scheduled. Tap Add Event below.</p></div></div>
       </div>
@@ -519,13 +592,9 @@ textarea.field-input{resize:vertical;min-height:72px;}
   </div><!-- /content -->
 
   <!-- FLOATING ACTION BUTTONS -->
-  <div class="fab-area" id="fab-home">
-    <button class="fab-primary" onclick="openPayModal()">+ Make Payment</button>
-  </div>
+  <div class="fab-area hidden" id="fab-home"></div>
   <div class="fab-area hidden" id="fab-finance"></div>
-  <div class="fab-area hidden" id="fab-schedule">
-    <button class="fab-primary" onclick="openSchedModal()">+ Add Event</button>
-  </div>
+  <div class="fab-area hidden" id="fab-schedule"></div>
   <div class="fab-area hidden" id="fab-vendors">
     <button class="fab-primary" onclick="openVendorModal()">+ Add Vendor</button>
   </div>
@@ -568,6 +637,7 @@ let currentUser = null, currentRole = 'owner';
 let projects = [], currentProjectIdx = 0;
 let payments = [], vendors = [], schedEvents = [];
 let sortAsc = false, finFilter = 'all', editingId = null, vendorSort = 'az';
+let sortModes = { home: 'date-desc', sched: 'date-asc' };
 let pinBuffer = '';
 
 // Keypad state (payment modal)
@@ -810,7 +880,7 @@ async function loadAll() {
   }
 }
 
-function renderAll() { renderStats(); renderHomeTxn(); renderFinance(); renderSchedule(); renderVendors(); renderRecommendation(); }
+function renderAll() { renderStats(); renderHomeTxn(); renderFinance(); renderSchedule(); renderVendors(); }
 
 // ── STATS ──
 // ── ADVANCE FUND CALCULATIONS ──
@@ -899,9 +969,32 @@ function renderAdvanceLedger() {
 // ── HOME TRANSACTIONS ──
 function renderHomeTxn() {
   const list = document.getElementById('home-txn-list');
-  const items = [...payments].slice(0, 10);
-  if (!items.length) { list.innerHTML = '<div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment below.</p></div>'; return; }
-  list.innerHTML = items.map(p => txnRow(p)).join('');
+  if (!payments.length) { list.innerHTML = '<div class="empty-state"><span class="icon">💳</span><p>No payments yet. Tap Make Payment below.</p></div>'; return; }
+
+  const q = (document.getElementById('search-input-home')?.value || '').trim().toLowerCase();
+  let items = [...payments];
+  if (q) {
+    items = items.filter(p => {
+      const vendorName = (vendors.find(v => v.id === p.vendor_id)?.name) || (p.payee_name || '');
+      return vendorName.toLowerCase().includes(q) ||
+        (p.note || '').toLowerCase().includes(q) ||
+        (p.invoice_number || '').toLowerCase().includes(q) ||
+        (p.method || '').toLowerCase().includes(q);
+    });
+  }
+  if (!items.length) { list.innerHTML = '<div class="empty-state"><p>No matching payments.</p></div>'; return; }
+
+  const mode = sortModes.home || 'date-desc';
+  items.sort((a, b) => {
+    const nameA = (vendors.find(v => v.id === a.vendor_id)?.name) || (a.payee_name || '');
+    const nameB = (vendors.find(v => v.id === b.vendor_id)?.name) || (b.payee_name || '');
+    if (mode === 'az') return nameA.localeCompare(nameB);
+    if (mode === 'za') return nameB.localeCompare(nameA);
+    if (mode === 'date-asc') return new Date(a.payment_date) - new Date(b.payment_date);
+    return new Date(b.payment_date) - new Date(a.payment_date); // date-desc default
+  });
+
+  list.innerHTML = items.slice(0, 50).map(p => txnRow(p)).join('');
 }
 
 function txnRow(p) {
@@ -945,34 +1038,71 @@ function renderFinance() {
 }
 
 // ── SCHEDULE ──
+function schedProgressPct(e) {
+  // Progress based on start date (event_date) vs estimated completion (end_date), relative to today
+  if (e.status === 'completed') return 100;
+  if (e.status === 'cancelled') return 0;
+  const start = e.event_date ? new Date(e.event_date + 'T12:00:00') : null;
+  const end   = e.end_date   ? new Date(e.end_date   + 'T12:00:00') : null;
+  const startValid = start && !isNaN(start);
+  const endValid   = end && !isNaN(end);
+  if (!startValid || !endValid || end <= start) return e.status === 'in-progress' ? 50 : 0;
+  const today = new Date();
+  const total = end - start;
+  const elapsed = today - start;
+  return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+}
+
 function renderSchedule() {
   const list = document.getElementById('sched-list');
   if (!schedEvents.length) { list.innerHTML = '<div class="empty-state"><span class="icon">📅</span><p>No events scheduled. Tap Add Event below.</p></div>'; return; }
-  const sorted = [...schedEvents].sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
-  list.innerHTML = sorted.map(e => {
+
+  const q = (document.getElementById('search-input-sched')?.value || '').trim().toLowerCase();
+  let items = [...schedEvents];
+  if (q) {
+    items = items.filter(e =>
+      (e.name || '').toLowerCase().includes(q) ||
+      (e.trade || '').toLowerCase().includes(q) ||
+      (e.note || '').toLowerCase().includes(q));
+  }
+  if (!items.length) { list.innerHTML = '<div class="empty-state"><p>No matching events.</p></div>'; return; }
+
+  const mode = sortModes.sched || 'date-asc';
+  items.sort((a, b) => {
+    if (mode === 'az') return a.name.localeCompare(b.name);
+    if (mode === 'za') return b.name.localeCompare(a.name);
+    if (mode === 'date-desc') return new Date(b.event_date) - new Date(a.event_date);
+    return new Date(a.event_date) - new Date(b.event_date); // date-asc default
+  });
+
+  // Canceled / Completed sink to the bottom, preserving the chosen sort within each group
+  const active = items.filter(e => e.status !== 'completed' && e.status !== 'cancelled');
+  const sunk   = items.filter(e => e.status === 'completed' || e.status === 'cancelled');
+  const ordered = [...active, ...sunk];
+
+  list.innerHTML = ordered.map(e => {
     const d = new Date(e.event_date + 'T12:00:00');
     const status = e.status || 'pending';
-    const badgeCls = status === 'confirmed' ? 'done' : status === 'completed' ? 'done' : 'pending';
-    return `<div class="sched-item" onclick="openSchedPanel('${e.id}')">
-      <div class="sched-date"><div class="mon">${d.toLocaleString('en',{month:'short'})}</div><div class="day">${d.getDate()}</div></div>
-      <div class="sched-body">
-        <div class="sched-name">${esc(e.name)}</div>
-        <div class="sched-trade">${esc(e.trade || '')}${e.end_date ? ' · Est. done ' + fmtDateShort(e.end_date) : ''}</div>
-        ${e.note ? `<div class="sched-note">${esc(e.note)}</div>` : ''}
+    const badgeCls = status === 'confirmed' ? 'done' : status === 'completed' ? 'done' : status === 'cancelled' ? 'due' : 'pending';
+    const isSunk = status === 'completed' || status === 'cancelled';
+    const pct = schedProgressPct(e);
+    const fillCls = status === 'completed' ? 'done' : status === 'cancelled' ? 'cancelled' : '';
+    return `<div class="sched-item${isSunk ? ' sunk' : ''}" onclick="openSchedPanel('${e.id}')">
+      <div class="sched-top">
+        <div class="sched-date"><div class="mon">${d.toLocaleString('en',{month:'short'})}</div><div class="day">${d.getDate()}</div></div>
+        <div class="sched-body">
+          <div class="sched-name">${esc(e.name)}</div>
+          <div class="sched-trade">${esc(e.trade || '')}${e.end_date ? ' · Est. done ' + fmtDateShort(e.end_date) : ''}</div>
+          ${e.note ? `<div class="sched-note">${esc(e.note)}</div>` : ''}
+        </div>
+        <div style="flex-shrink:0"><span class="badge ${badgeCls}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></div>
       </div>
-      <div style="flex-shrink:0"><span class="badge ${badgeCls}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></div>
+      <div class="sched-progress-wrap">
+        <div class="sched-progress-track"><div class="sched-progress-fill ${fillCls}" style="width:${pct}%"></div></div>
+        <div class="sched-progress-lbl"><span>${fmtDateShort(e.event_date)}</span><span>${pct}%</span><span>${fmtDateShort(e.end_date)}</span></div>
+      </div>
     </div>`;
   }).join('');
-}
-
-function renderRecommendation() {
-  const phases = ['Foundation & Excavation','Framing','Plumbing Rough-in','Electrical Rough-in','HVAC Rough-in','Insulation','Drywall','Flooring','Painting','Fixtures & Finishes','Final Inspection'];
-  const completed = schedEvents.filter(e => e.status === 'completed').length;
-  const phase = phases[Math.min(completed, phases.length - 1)];
-  const next = phases[Math.min(completed + 1, phases.length - 1)];
-  const rec = `Current phase: ${phase}. Next milestone: schedule ${next} contractor (typical lead time 5–10 days). Verify permits before proceeding.`;
-  document.getElementById('rec-text').textContent = rec;
-  document.getElementById('sched-rec').textContent = rec;
 }
 
 // ── VENDORS ──
@@ -1442,16 +1572,59 @@ async function deleteRecord(table, id) {
   closePanel(); await loadAll(); toast('Deleted');
 }
 
-// ── SORT TOGGLE ──
+// ── SEARCH BAR TOGGLE ──
+function toggleSearchBar(ctx) {
+  const wrap = document.getElementById('search-wrap-' + ctx);
+  const btn = document.getElementById('search-toggle-' + ctx);
+  if (!wrap) return;
+  const willOpen = !wrap.classList.contains('on');
+  wrap.classList.toggle('on', willOpen);
+  if (btn) btn.classList.toggle('on', willOpen);
+  if (willOpen) {
+    setTimeout(() => document.getElementById('search-input-' + ctx)?.focus(), 50);
+  } else {
+    clearSearch(ctx);
+  }
+}
+
+function clearSearch(ctx) {
+  const input = document.getElementById('search-input-' + ctx);
+  if (input) input.value = '';
+  if (ctx === 'home') renderHomeTxn();
+  else if (ctx === 'sched') renderSchedule();
+}
+
+// ── SORT DROPDOWN ──
+function toggleSortMenu(ctx, evt) {
+  if (evt) evt.stopPropagation();
+  const menu = document.getElementById('sort-menu-' + ctx);
+  if (!menu) return;
+  const willOpen = !menu.classList.contains('on');
+  document.querySelectorAll('.sort-dropdown').forEach(m => m.classList.remove('on'));
+  if (willOpen) menu.classList.add('on');
+}
+
+function setSortMode(ctx, mode, evt) {
+  if (evt) evt.stopPropagation();
+  sortModes[ctx] = mode;
+  const labels = { 'date-asc': 'Date', 'date-desc': 'Date', 'az': 'A–Z', 'za': 'Z–A' };
+  const lblEl = document.getElementById('sort-lbl-' + ctx);
+  if (lblEl) lblEl.textContent = labels[mode] || 'Date';
+  document.querySelectorAll(`#sort-menu-${ctx} .sort-opt`).forEach(o => o.classList.toggle('on', o.dataset.mode === mode));
+  document.getElementById('sort-menu-' + ctx)?.classList.remove('on');
+  if (ctx === 'home') renderHomeTxn();
+  else if (ctx === 'sched') renderSchedule();
+}
+
+// Close any open sort dropdown when tapping elsewhere
+document.addEventListener('click', () => {
+  document.querySelectorAll('.sort-dropdown').forEach(m => m.classList.remove('on'));
+});
+
+// ── VENDOR SORT TOGGLE (legacy A–Z/Total/Recent row) ──
 function toggleSort(ctx) {
   sortAsc = !sortAsc;
-  if (ctx === 'home' || ctx === 'finance') {
-    payments.sort((a, b) => sortAsc ? new Date(a.payment_date) - new Date(b.payment_date) : new Date(b.payment_date) - new Date(a.payment_date));
-    renderHomeTxn(); renderFinance();
-  } else if (ctx === 'sched') {
-    schedEvents.sort((a, b) => sortAsc ? new Date(a.event_date) - new Date(b.event_date) : new Date(b.event_date) - new Date(a.event_date));
-    renderSchedule();
-  } else if (ctx === 'vendors') {
+  if (ctx === 'vendors') {
     vendors.sort((a, b) => sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
     renderVendors();
   }
@@ -1746,7 +1919,8 @@ function showTab(tab) {
   document.querySelectorAll('.fab-area').forEach(f => f.classList.add('hidden'));
   document.getElementById('page-' + tab).classList.add('on');
   document.querySelector(`.nav-tab[data-tab="${tab}"]`).classList.add('on');
-  document.getElementById('fab-' + tab).classList.remove('hidden');
+  const fab = document.getElementById('fab-' + tab);
+  if (fab && fab.children.length > 0) fab.classList.remove('hidden');
 }
 
 // ── MODAL / PANEL HELPERS ──
