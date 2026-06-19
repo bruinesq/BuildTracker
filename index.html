@@ -275,10 +275,22 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .advance-card-lbl{font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.6px;}
 .advance-card-bal{font-size:26px;font-weight:700;color:#fff;}
 .advance-card-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;}
+
 .advance-mini-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
 .advance-mini{background:rgba(255,255,255,0.08);border-radius:7px;padding:8px 10px;}
 .advance-mini-val{font-size:14px;font-weight:700;color:#fff;}
 .advance-mini-lbl{font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;}
+
+/* ── ADVANCE CARD — 2-COLUMN VARIANT (Home dashboard) ── */
+.advance-card-2col{display:flex;gap:10px;align-items:stretch;}
+.advance-2col-left{flex:1.1;min-width:0;}
+.advance-2col-bal{font-size:22px;font-weight:700;color:#fff;margin-top:2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.advance-2col-bal.shrink{font-size:17px;}
+.advance-2col-right{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;}
+.advance-2col-mini{background:rgba(255,255,255,0.08);border-radius:7px;padding:7px 9px;flex:1;display:flex;flex-direction:column;justify-content:center;min-width:0;}
+.advance-2col-mini-val{font-size:13px;font-weight:700;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.advance-2col-mini-val.shrink{font-size:11px;}
+.advance-2col-mini-lbl{font-size:8px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;}
 .advance-record-btn{background:rgba(245,166,35,0.18);border:1px solid rgba(245,166,35,0.45);color:var(--gold);border-radius:7px;padding:8px;font-size:12px;font-weight:700;text-align:center;margin-top:10px;cursor:pointer;}
 .ledger-item{display:flex;align-items:center;gap:10px;padding:9px 8px;margin:0 -8px;border-bottom:1px solid var(--border);border-radius:6px;}
 .ledger-item:nth-child(even){background:var(--band);}
@@ -423,16 +435,16 @@ textarea.field-input{resize:vertical;min-height:72px;}
         <div class="stat-card red"><div class="stat-val" id="stat-due">$0</div><div class="stat-lbl">Bills Due</div></div>
       </div>
       <div class="advance-card" id="home-advance-card" style="display:none;">
-        <div class="advance-card-top">
-          <div>
+        <div class="advance-card-2col">
+          <div class="advance-2col-left">
             <div class="advance-card-lbl">Advance Fund Balance</div>
-            <div class="advance-card-bal" id="home-advance-balance">$0</div>
+            <div class="advance-2col-bal" id="home-advance-balance">$0</div>
             <div class="advance-card-sub" id="home-advance-sub">held by Contractor</div>
           </div>
-        </div>
-        <div class="advance-mini-row">
-          <div class="advance-mini"><div class="advance-mini-val" id="home-advance-total">$0</div><div class="advance-mini-lbl">Total Advanced</div></div>
-          <div class="advance-mini"><div class="advance-mini-val" id="home-advance-drawn">$0</div><div class="advance-mini-lbl">Drawn Down</div></div>
+          <div class="advance-2col-right">
+            <div class="advance-2col-mini"><div class="advance-2col-mini-val" id="home-advance-total">$0</div><div class="advance-2col-mini-lbl">Total Advanced</div></div>
+            <div class="advance-2col-mini"><div class="advance-2col-mini-val" id="home-advance-drawn">$0</div><div class="advance-2col-mini-lbl">Drawn Down</div></div>
+          </div>
         </div>
       </div>
       <button class="fab-primary" style="width:100%;margin-bottom:12px;" onclick="openPayModal()">+ Make Payment</button>
@@ -925,9 +937,9 @@ function renderStats() {
   if (homeCard) {
     if (adv.advancesIn > 0) {
       homeCard.style.display = 'block';
-      document.getElementById('home-advance-balance').textContent = fmtMoney(adv.balance);
-      document.getElementById('home-advance-total').textContent = fmtMoney(adv.advancesIn);
-      document.getElementById('home-advance-drawn').textContent = fmtMoney(adv.drawsOut);
+      setMoneyShrink('home-advance-balance', adv.balance, 11);
+      setMoneyShrink('home-advance-total', adv.advancesIn, 9);
+      setMoneyShrink('home-advance-drawn', adv.drawsOut, 9);
     } else {
       homeCard.style.display = 'none';
     }
@@ -1992,6 +2004,16 @@ function gv(id) { return v(id); }
 function setInputVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtMoney(n) { return '$' + (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+// Sets formatted money text on an element, auto-shrinking the font (via .shrink class)
+// once the value's digit count would crowd a narrow column (e.g. the 2-col Advance Fund card).
+function setMoneyShrink(id, amount, shrinkAtCharLen) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const text = fmtMoney(amount);
+  el.textContent = text;
+  el.classList.toggle('shrink', text.length >= shrinkAtCharLen);
+}
 function fmtTimestamp(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
