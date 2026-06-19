@@ -472,9 +472,8 @@ textarea.field-input{resize:vertical;min-height:72px;}
       <div class="stat-grid">
         <div class="stat-card" style="background:var(--owner-lt);"><div class="stat-val" id="fin-owner" style="color:var(--owner);">$0</div><div class="stat-lbl" style="color:var(--owner);opacity:0.75;">Owner Paid</div></div>
         <div class="stat-card" style="background:var(--contractor-lt);"><div class="stat-val" id="fin-contractor" style="color:var(--contractor);">$0</div><div class="stat-lbl" style="color:var(--contractor);opacity:0.75;">Contractor Paid</div></div>
-      </div>
-      <div class="stat-card red" style="margin-bottom:12px;border-radius:var(--radius-sm);padding:11px 13px;">
-        <div class="stat-val" id="fin-due">$0</div><div class="stat-lbl">Outstanding Bills</div>
+        <div class="stat-card red"><div class="stat-val" id="fin-due">$0</div><div class="stat-lbl">Outstanding Bills</div></div>
+        <div class="stat-card" style="background:var(--navy);"><div class="stat-val" id="fin-adv-balance" style="color:var(--gold);">$0</div><div class="stat-lbl" style="color:rgba(255,255,255,0.6);">Advance Fund Bal.</div></div>
       </div>
 
       <!-- ── ADVANCE FUND ── -->
@@ -483,7 +482,7 @@ textarea.field-input{resize:vertical;min-height:72px;}
           <div class="sec-hdr-label">Advance Fund</div>
           <div class="sort-btn" onclick="openAdvanceModal()">+ Record Advance</div>
         </div>
-        <div class="advance-card" style="margin-bottom:10px;">
+        <div class="advance-card">
           <div class="advance-card-top">
             <div>
               <div class="advance-card-lbl">Current Balance</div>
@@ -496,17 +495,27 @@ textarea.field-input{resize:vertical;min-height:72px;}
             <div class="advance-mini"><div class="advance-mini-val" id="adv-drawn">$0</div><div class="advance-mini-lbl">Drawn Down</div></div>
           </div>
         </div>
-        <div class="sec-hdr"><div class="sec-hdr-label" style="font-size:11px;">Running Ledger</div></div>
-        <div id="advance-ledger"><div class="empty-state"><p style="font-size:12px;">No advance activity yet.</p></div></div>
       </div>
 
-      <div class="fin-tabs">
-        <div class="fin-tab on" onclick="filterFin('all')">All</div>
-        <div class="fin-tab" onclick="filterFin('owner')">Owner</div>
-        <div class="fin-tab" onclick="filterFin('contractor')">Contractor</div>
-        <div class="fin-tab" onclick="filterFin('due')">Due</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:0;flex-wrap:wrap;">
+        <div class="fin-tabs" style="flex:1;margin-bottom:0;min-width:200px;">
+          <div class="fin-tab on" data-f="all" onclick="filterFin('all')">All</div>
+          <div class="fin-tab" data-f="owner" id="fin-tab-ownercontr" onclick="toggleOwnerContractor()">Owner&nbsp;<span style="opacity:0.5;font-weight:400;">&#8644;</span></div>
+          <div class="fin-tab" data-f="due" onclick="filterFin('due')">Due</div>
+          <div class="fin-tab" data-f="advances" onclick="filterFin('advances')">Advances</div>
+        </div>
+        <div class="icon-btn" id="search-toggle-fin" onclick="toggleSearchBar('fin')" title="Search" style="flex-shrink:0;">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
       </div>
-      <div id="fin-list"></div>
+      <div class="search-bar-wrap" id="search-wrap-fin" style="margin-top:10px;">
+        <div class="search-bar">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-input-fin" placeholder="Search…" oninput="renderFinance()">
+          <span class="search-clear" onclick="clearSearch('fin')">&#xD7;</span>
+        </div>
+      </div>
+      <div id="fin-list" style="margin-top:12px;"></div>
     </div>
 
     <!-- ── SCHEDULE ── -->
@@ -929,41 +938,38 @@ function renderStats() {
     document.getElementById('adv-total').textContent = fmtMoney(adv.advancesIn);
     document.getElementById('adv-drawn').textContent = fmtMoney(adv.drawsOut);
   }
-  renderAdvanceLedger();
+  const finAdvBal = document.getElementById('fin-adv-balance');
+  if (finAdvBal) finAdvBal.textContent = fmtMoney(adv.balance);
 }
 
-function renderAdvanceLedger() {
-  const list = document.getElementById('advance-ledger');
-  if (!list) return;
-  // Combine advances-in and draws-out into one running-balance ledger, sorted by date
+function getAdvanceLedgerEntries() {
+  // Combine advances-in and draws-out into one running-balance ledger, sorted oldest first
+  // (oldest-first order is required so each entry's running balance reflects everything before it)
   const entries = payments.filter(x => (x.is_advance_fund || x.funding_source === 'advance') && !x.is_due)
     .map(x => ({ ...x, _isAdvance: !!x.is_advance_fund }))
     .sort((a, b) => (a.payment_date || '').localeCompare(b.payment_date || '') || (a.entered_at||'').localeCompare(b.entered_at||''));
 
-  if (!entries.length) {
-    list.innerHTML = '<div class="empty-state"><p style="font-size:12px;">No advance activity yet.</p></div>';
-    return;
-  }
-
   let running = 0;
-  const rows = entries.map(e => {
+  return entries.map(e => {
     if (e._isAdvance) running += (e.amount || 0);
     else running -= (e.amount || 0);
     const vendorName = vendors.find(v => v.id === e.vendor_id)?.name || e.payee_name || (e._isAdvance ? 'Contractor (Advance)' : '—');
-    return `<div class="ledger-item">
+    return { ...e, _runningBalance: running, _displayName: e._isAdvance ? 'Advance to Contractor' : vendorName };
+  }).reverse(); // most recent first for display, matching the other tabs
+}
+
+function ledgerRow(e) {
+  return `<div class="ledger-item" onclick="openPayPanel('${e.id}')">
       <div class="ledger-icon ${e._isAdvance ? 'in' : 'out'}">${e._isAdvance ? '+' : '−'}</div>
       <div class="ledger-meta">
-        <div class="ledger-name">${esc(e._isAdvance ? 'Advance to Contractor' : vendorName)}</div>
+        <div class="ledger-name">${esc(e._displayName)}</div>
         <div class="ledger-detail">${fmtDateShort(e.payment_date)}${e.note ? ' · ' + esc(e.note) : ''}</div>
       </div>
       <div class="ledger-right">
         <div class="ledger-amt ${e._isAdvance ? 'in' : 'out'}">${e._isAdvance ? '+' : '−'}${fmtMoney(e.amount)}</div>
-        <div class="ledger-bal">Bal: ${fmtMoney(running)}</div>
+        <div class="ledger-bal">Bal: ${fmtMoney(e._runningBalance)}</div>
       </div>
     </div>`;
-  });
-  // Show most recent first
-  list.innerHTML = rows.reverse().join('');
 }
 
 // ── HOME TRANSACTIONS ──
@@ -1021,18 +1027,62 @@ function txnRow(p) {
 }
 
 // ── FINANCE ──
+let ownerContractorState = 'owner'; // tracks which side the merged toggle is currently showing
+
 function filterFin(f) {
   finFilter = f;
-  document.querySelectorAll('.fin-tab').forEach(t => t.classList.toggle('on', t.textContent.toLowerCase().trim() === f || (f === 'all' && t.textContent.trim() === 'All')));
+  document.querySelectorAll('.fin-tab').forEach(t => {
+    t.classList.toggle('on', t.dataset.f === f);
+    if (t.id === 'fin-tab-ownercontr' && f !== 'owner' && f !== 'contractor') {
+      t.style.color = '';
+      t.style.borderBottomColor = '';
+    }
+  });
+  renderFinance();
+}
+
+function toggleOwnerContractor() {
+  // First tap when neither owner/contractor is active just selects the current toggle state;
+  // tapping again while already active flips owner <-> contractor
+  if (finFilter === 'owner' || finFilter === 'contractor') {
+    ownerContractorState = ownerContractorState === 'owner' ? 'contractor' : 'owner';
+  }
+  finFilter = ownerContractorState;
+  const tab = document.getElementById('fin-tab-ownercontr');
+  tab.dataset.f = ownerContractorState;
+  tab.innerHTML = (ownerContractorState === 'owner' ? 'Owner' : 'Contractor') + '&nbsp;<span style="opacity:0.6;font-weight:400;">&#8644;</span>';
+  tab.style.color = ownerContractorState === 'owner' ? 'var(--owner)' : 'var(--contractor)';
+  tab.style.borderBottomColor = ownerContractorState === 'owner' ? 'var(--owner)' : 'var(--contractor)';
+  document.querySelectorAll('.fin-tab').forEach(t => { if (t !== tab) { t.classList.remove('on'); t.style.color = ''; t.style.borderBottomColor = ''; } });
+  tab.classList.add('on');
   renderFinance();
 }
 
 function renderFinance() {
+  const list = document.getElementById('fin-list');
+  const q = (document.getElementById('search-input-fin')?.value || '').trim().toLowerCase();
+
+  if (finFilter === 'advances') {
+    let entries = getAdvanceLedgerEntries();
+    if (q) entries = entries.filter(e => (e._displayName || '').toLowerCase().includes(q) || (e.note || '').toLowerCase().includes(q));
+    if (!entries.length) { list.innerHTML = '<div class="empty-state"><p>No advance activity yet.</p></div>'; return; }
+    list.innerHTML = entries.map(e => ledgerRow(e)).join('');
+    return;
+  }
+
   let items = [...payments];
   if (finFilter === 'owner') items = items.filter(x => x.paid_by === 'owner' && !x.is_due);
   else if (finFilter === 'contractor') items = items.filter(x => x.paid_by === 'contractor' && !x.is_due);
   else if (finFilter === 'due') items = items.filter(x => x.is_due);
-  const list = document.getElementById('fin-list');
+  if (q) {
+    items = items.filter(p => {
+      const vendorName = (vendors.find(v => v.id === p.vendor_id)?.name) || (p.payee_name || '');
+      return vendorName.toLowerCase().includes(q) ||
+        (p.note || '').toLowerCase().includes(q) ||
+        (p.invoice_number || '').toLowerCase().includes(q) ||
+        (p.method || '').toLowerCase().includes(q);
+    });
+  }
   if (!items.length) { list.innerHTML = '<div class="empty-state"><p>No entries in this category.</p></div>'; return; }
   list.innerHTML = items.map(p => txnRow(p)).join('');
 }
@@ -1592,6 +1642,7 @@ function clearSearch(ctx) {
   if (input) input.value = '';
   if (ctx === 'home') renderHomeTxn();
   else if (ctx === 'sched') renderSchedule();
+  else if (ctx === 'fin') renderFinance();
 }
 
 // ── SORT DROPDOWN ──
