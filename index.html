@@ -283,7 +283,7 @@ textarea.field-input{resize:vertical;min-height:72px;}
 
 /* ── ADVANCE CARD — 2-COLUMN VARIANT (Home dashboard) ── */
 .advance-card-2col{display:flex;gap:10px;align-items:stretch;}
-.advance-2col-left{flex:1.1;min-width:0;}
+.advance-2col-left{flex:1.1;min-width:0;display:flex;flex-direction:column;}
 .advance-2col-bal{font-size:22px;font-weight:700;color:#fff;margin-top:2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .advance-2col-bal.shrink{font-size:17px;}
 .advance-2col-right{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;}
@@ -440,6 +440,8 @@ textarea.field-input{resize:vertical;min-height:72px;}
             <div class="advance-card-lbl">Advance Fund Balance</div>
             <div class="advance-2col-bal" id="home-advance-balance">$0</div>
             <div class="advance-card-sub" id="home-advance-sub">held by Contractor</div>
+            <div style="flex:1;"></div>
+            <div class="advance-record-btn" style="margin-top:8px;" onclick="openAdvanceModal()">+ Record Advance</div>
           </div>
           <div class="advance-2col-right">
             <div class="advance-2col-mini"><div class="advance-2col-mini-val" id="home-advance-total">$0</div><div class="advance-2col-mini-lbl">Total Advanced</div></div>
