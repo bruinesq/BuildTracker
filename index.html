@@ -866,7 +866,7 @@ function buildProjectForm(p) {
 async function openAddProject() {
   editingId = null;
   document.getElementById('modal-title').textContent = 'New Project';
-  document.getElementById('modal-body').className = 'modal-body';
+  document.getElementById('modal-body').className = 'modal-body tinted';
   document.getElementById('modal-body').innerHTML = buildProjectForm(null) + `
     <button class="btn-save" onclick="saveProject(false)">Add Project</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
@@ -878,7 +878,7 @@ async function openEditProject() {
   if (!p) { toast('No project selected'); return; }
   editingId = p.id;
   document.getElementById('modal-title').textContent = 'Edit Project';
-  document.getElementById('modal-body').className = 'modal-body';
+  document.getElementById('modal-body').className = 'modal-body tinted';
   document.getElementById('modal-body').innerHTML = buildProjectForm(p) + `
     <button class="btn-save" onclick="saveProject(true)">Save Changes</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
@@ -1271,11 +1271,13 @@ function openPayModal(prefillVendorId = null, prefillPayment = null) {
     <div class="field"><div class="field-lbl">Payee (from Vendors)</div>
       <select class="field-input" id="fp-vendor" onchange="toggleAddVendorRow()"><option value="">— Select Vendor / Sub —</option>${vOptions}</select></div>
     <div class="field"><div class="field-lbl">Or Quick Name (if not in list)</div>
-      <input class="field-input" id="fp-payee" value="${esc(p?.payee_name||'')}" placeholder="Payee name" oninput="toggleAddVendorRow()">
-      <label id="fp-addvendor-row" style="display:${p?.payee_name ? 'flex' : 'none'};align-items:center;gap:6px;margin-top:7px;font-size:12px;color:var(--muted);">
-        <input type="checkbox" id="fp-addvendor" style="width:16px;height:16px;accent-color:var(--amber);">
-        Also add this payee to your Vendor list
-      </label></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input class="field-input" id="fp-payee" style="flex:1;min-width:0;" value="${esc(p?.payee_name||'')}" placeholder="Payee name" oninput="toggleAddVendorRow()">
+        <label id="fp-addvendor-row" style="display:${p?.payee_name ? 'flex' : 'none'};align-items:center;gap:5px;font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;">
+          <input type="checkbox" id="fp-addvendor" style="width:16px;height:16px;accent-color:var(--amber);flex-shrink:0;">
+          Add vendor
+        </label>
+      </div></div>
     <div class="field"><div class="field-lbl">Amount ($)</div>
       <div class="field-input tap-to-edit" id="fp-amount-disp" onclick="openKP('fp-amount-disp','fp-amount-val')">${amtDisplay}</div>
       <input type="hidden" id="fp-amount-val" value="${amtVal}">
@@ -1407,9 +1409,9 @@ function openAdvanceModal() {
   editingId = null;
   document.getElementById('modal-title').textContent = 'Record Advance to Contractor';
   const today = todayStr();
-  document.getElementById('modal-body').className = 'modal-body';
+  document.getElementById('modal-body').className = 'modal-body tinted';
   document.getElementById('modal-body').innerHTML = `
-    <div class="field" style="background:var(--amber-lt);border-radius:var(--radius-sm);padding:10px 12px;">
+    <div class="field" style="background:var(--white);border:1px solid var(--card-border-y);border-radius:var(--radius-sm);padding:10px 12px;">
       <div style="font-size:12px;color:#7A4A00;line-height:1.5;">This logs a lump-sum advance paid by Owner to Contractor. The amount becomes available as a draw-down balance the Contractor can use to pay vendors on Owner's behalf.</div>
     </div>
     <div class="field"><div class="field-lbl">Advance Amount ($)</div>
