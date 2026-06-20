@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Construction Tracker</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -637,7 +636,11 @@ textarea.field-input{resize:vertical;min-height:72px;}
 // ════════════════════════════════════════════════════════════
 const SUPABASE_URL  = 'https://wafmwlfxalrqclzeuzcy.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhZm13bGZ4YWxycWNsemV1emN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTUzNTgsImV4cCI6MjA5NzM3MTM1OH0.R4eqUU9tmSiyB2dujJ0XHazq4F4D08Hg0MfFH_sjhpg';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+// Note: the Supabase JS client is intentionally NOT created here.
+// Every table read/write now routes through the `data` and `auth-pin`
+// Edge Functions instead of talking to Supabase directly — see
+// dataCall() / authCall() below. SUPABASE_ANON is still needed as the
+// bearer token Supabase's gateway expects on every Edge Function call.
 
 // ── DROPBOX CONFIG ── App key is public by design (PKCE/OAuth client id).
 // App secret never appears here — it lives only inside the Edge Function.
@@ -645,7 +648,9 @@ const DROPBOX_APP_KEY = 'szbjehvbbm9xk53';
 const DROPBOX_REDIRECT_URI = 'https://bruinesq.github.io/BuildTracker/';
 const DROPBOX_FN_URL = SUPABASE_URL + '/functions/v1/dropbox';
 const AUTH_FN_URL = SUPABASE_URL + '/functions/v1/auth-pin';
+const DATA_FN_URL = SUPABASE_URL + '/functions/v1/data';
 let docsTarget = null; // { vendorId, mode: 'pick'|'browse', path }
+let sessionToken = null; // issued at login, required by every dataCall()
 
 // ── STATE ──
 let currentUser = null, currentRole = 'owner';
@@ -670,6 +675,31 @@ async function authCall(action, extra = {}) {
   const out = await resp.json();
   if (!resp.ok && resp.status !== 401) throw new Error(typeof out.error === 'string' ? out.error : 'Request failed');
   return out;
+}
+
+// Proxies every projects/payments/vendors/schedule_events operation through
+// the `data` Edge Function. Returns {data, error} — same shape the old
+// direct sb.from(...) calls returned, so call sites barely change.
+async function dataCall(op, params = {}) {
+  try {
+    const resp = await fetch(DATA_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON },
+      body: JSON.stringify({ session_token: sessionToken, op, ...params }),
+    });
+    const out = await resp.json();
+    if (resp.status === 401) {
+      toast('Session expired — please log in again');
+      doLogout();
+      return { data: null, error: { message: 'Session expired' } };
+    }
+    if (!resp.ok || out.error) {
+      return { data: null, error: typeof out.error === 'object' ? out.error : { message: out.error || 'Request failed' } };
+    }
+    return { data: out.data, error: null };
+  } catch (e) {
+    return { data: null, error: { message: e.message } };
+  }
 }
 
 function selectRole(r) {
@@ -704,14 +734,15 @@ async function attemptLogin() {
   const pin = pinBuffer;
   try {
     const out = await authCall('login', { pin, role: currentRole });
-    if (!out.ok || !out.user) {
+    if (!out.ok || !out.user || !out.session_token) {
       renderPinDots(true);
       errEl.textContent = 'Incorrect PIN. Try again.';
       setTimeout(() => { pinBuffer = ''; renderPinDots(); }, 900);
       return;
     }
     currentUser = out.user;
-    sessionStorage.setItem('bt_user', JSON.stringify({ ...out.user, role: currentRole }));
+    sessionToken = out.session_token;
+    sessionStorage.setItem('bt_user', JSON.stringify({ ...out.user, role: currentRole, session_token: sessionToken }));
     await initApp();
   } catch(e) {
     errEl.textContent = 'Connection error. Check network.';
@@ -739,8 +770,9 @@ async function changePin() {
 }
 
 function doLogout() {
+  if (sessionToken) authCall('logout', { session_token: sessionToken }).catch(() => {});
   sessionStorage.removeItem('bt_user');
-  currentUser = null; pinBuffer = ''; renderPinDots();
+  currentUser = null; sessionToken = null; pinBuffer = ''; renderPinDots();
   document.getElementById('pin-err').textContent = '';
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
@@ -759,7 +791,7 @@ async function initApp() {
 
 // ── PROJECTS ──
 async function loadProjects() {
-  const { data, error } = await sb.from('projects').select('*').order('created_at', { ascending: true });
+  const { data, error } = await dataCall('select', { table: 'projects', order: { column: 'created_at', ascending: true } });
   if (error) {
     console.error('loadProjects error:', error);
     showDbError('Cannot load projects: ' + error.message);
@@ -859,14 +891,14 @@ async function saveProject(isEdit) {
   if (!name) { toast('Project name required'); return; }
   const row = { name, description: desc, owner_name: ownerName, contractor_name: contractorName, started_at: startedAt, budget };
   if (isEdit && editingId) {
-    const { error } = await sb.from('projects').update(row).eq('id', editingId);
+    const { error } = await dataCall('update', { table: 'projects', id: editingId, patch: row });
     if (error) { toast('Update failed: ' + error.message); return; }
     const idx = projects.findIndex(p => p.id === editingId);
     if (idx >= 0) projects[idx] = { ...projects[idx], ...row };
     renderTopBar(); renderStats();
     closeModal(); toast('Project updated'); editingId = null;
   } else {
-    const { data, error } = await sb.from('projects').insert([row]).select();
+    const { data, error } = await dataCall('insert', { table: 'projects', row });
     if (error) { toast('Save failed: ' + error.message); return; }
     if (data && data.length) { projects.push(data[0]); currentProjectIdx = projects.length - 1; renderTopBar(); await loadAll(); }
     closeModal(); toast('Project added');
@@ -876,7 +908,7 @@ async function saveProject(isEdit) {
 async function saveBudget() {
   const p = projects[currentProjectIdx]; if (!p) return;
   const budget = parseFloat(document.getElementById('budget-input')?.value) || 0;
-  const { error } = await sb.from('projects').update({ budget }).eq('id', p.id);
+  const { error } = await dataCall('update', { table: 'projects', id: p.id, patch: { budget } });
   if (error) { toast('Save failed: ' + error.message); return; }
   p.budget = budget; renderTopBar(); renderStats(); toast('Budget saved');
 }
@@ -887,9 +919,9 @@ async function loadAll() {
   if (!pid) { console.warn('loadAll: no project id'); return; }
   try {
     const [pRes, vRes, sRes] = await Promise.all([
-      sb.from('payments').select('*').eq('project_id', pid).order('payment_date', { ascending: false }),
-      sb.from('vendors').select('*').eq('project_id', pid).order('name'),
-      sb.from('schedule_events').select('*').eq('project_id', pid).order('event_date')
+      dataCall('select', { table: 'payments', eq: { project_id: pid }, order: { column: 'payment_date', ascending: false } }),
+      dataCall('select', { table: 'vendors', eq: { project_id: pid }, order: { column: 'name', ascending: true } }),
+      dataCall('select', { table: 'schedule_events', eq: { project_id: pid }, order: { column: 'event_date', ascending: true } })
     ]);
     if (pRes.error) console.error('payments error:', pRes.error);
     if (vRes.error) console.error('vendors error:', vRes.error);
@@ -1320,20 +1352,20 @@ async function savePayment() {
   }
 
   let result = editingId
-    ? await sb.from('payments').update(baseRow).eq('id', editingId)
-    : await sb.from('payments').insert([finalRow]);
+    ? await dataCall('update', { table: 'payments', id: editingId, patch: baseRow })
+    : await dataCall('insert', { table: 'payments', row: finalRow });
 
   // If insert failed because newer columns don't exist yet, retry progressively
   if (result.error && !editingId && result.error.code === '42703') {
     console.warn('Schema column missing — retrying with reduced fields. Run pending SQL migrations in Supabase.');
     const stripped = { ...baseRow };
     delete stripped.funding_source;
-    result = await sb.from('payments').insert([stripped]);
+    result = await dataCall('insert', { table: 'payments', row: stripped });
   }
   if (result.error && editingId && result.error.code === '42703') {
     const stripped = { ...baseRow };
     delete stripped.funding_source;
-    result = await sb.from('payments').update(stripped).eq('id', editingId);
+    result = await dataCall('update', { table: 'payments', id: editingId, patch: stripped });
   }
 
   if (result.error) { toast('Save failed: ' + result.error.message); return; }
@@ -1388,12 +1420,12 @@ async function saveAdvance() {
     is_advance_fund: true
   };
   let finalRow = { ...baseRow, entered_by_role: currentRole || 'owner', entered_at: new Date().toISOString() };
-  let result = await sb.from('payments').insert([finalRow]);
+  let result = await dataCall('insert', { table: 'payments', row: finalRow });
   if (result.error && result.error.code === '42703') {
     console.warn('is_advance_fund column missing — run add_advance_fund.sql in Supabase.');
     delete finalRow.is_advance_fund;
-    result = await sb.from('payments').insert([finalRow]);
-    if (result.error) { delete finalRow.entered_by_role; delete finalRow.entered_at; result = await sb.from('payments').insert([finalRow]); }
+    result = await dataCall('insert', { table: 'payments', row: finalRow });
+    if (result.error) { delete finalRow.entered_by_role; delete finalRow.entered_at; result = await dataCall('insert', { table: 'payments', row: finalRow }); }
   }
   if (result.error) { toast('Save failed: ' + result.error.message); return; }
   toast('Advance recorded');
@@ -1440,8 +1472,8 @@ async function saveVendor() {
   const row = { project_id: pid, name: gv('fv-name'), trade: gv('fv-trade'), contact_person: gv('fv-contact'), phone: gv('fv-phone'), email: gv('fv-email'), address: gv('fv-addr'), license_number: gv('fv-lic'), note: gv('fv-note') };
   if (!row.name) { toast('Vendor name required'); return; }
   const { error } = editingId
-    ? await sb.from('vendors').update(row).eq('id', editingId)
-    : await sb.from('vendors').insert([row]);
+    ? await dataCall('update', { table: 'vendors', id: editingId, patch: row })
+    : await dataCall('insert', { table: 'vendors', row });
   if (error) { toast('Save failed: ' + error.message); return; }
   toast(editingId ? 'Vendor updated' : 'Vendor added');
   closeModal(); await loadAll();
@@ -1486,8 +1518,8 @@ async function saveSchedEvent() {
   const vendorName = vendorId ? (vendors.find(x => x.id === vendorId)?.name || '') : v('fe-name');
   const row = { project_id: pid, vendor_id: vendorId, name: vendorName || v('fe-name'), trade: v('fe-trade'), event_date: v('fe-start-val'), end_date: v('fe-end-val'), status: v('fe-status') || 'scheduled', note: v('fe-note') };
   if (!row.name) { toast('Name required'); return; }
-  if (editingId) { await sb.from('schedule_events').update(row).eq('id', editingId); toast('Event updated'); }
-  else { await sb.from('schedule_events').insert([row]); toast('Event scheduled'); }
+  if (editingId) { await dataCall('update', { table: 'schedule_events', id: editingId, patch: row }); toast('Event updated'); }
+  else { await dataCall('insert', { table: 'schedule_events', row }); toast('Event scheduled'); }
   closeModal(); await loadAll();
 }
 
@@ -1634,7 +1666,7 @@ function docsGoUp() {
 async function pickThisFolder() {
   const { vendorId, path } = docsTarget;
   if (!path) { toast('Pick a specific vendor folder, not the Dropbox root'); return; }
-  const { error } = await sb.from('vendors').update({ dropbox_folder_path: path }).eq('id', vendorId);
+  const { error } = await dataCall('update', { table: 'vendors', id: vendorId, patch: { dropbox_folder_path: path } });
   if (error) { toast('Save failed: ' + error.message); return; }
   const vIdx = vendors.findIndex(x => x.id === vendorId);
   if (vIdx >= 0) vendors[vIdx].dropbox_folder_path = path;
@@ -1786,7 +1818,8 @@ function openSchedPanel(id) {
 // ── DELETE ──
 async function deleteRecord(table, id) {
   if (!confirm('Delete this record? This cannot be undone.')) return;
-  await sb.from(table).delete().eq('id', id);
+  const { error } = await dataCall('delete', { table, id });
+  if (error) { toast('Delete failed: ' + error.message); return; }
   closePanel(); await loadAll(); toast('Deleted');
 }
 
@@ -2222,7 +2255,9 @@ function toast(msg) {
     try {
       currentUser = JSON.parse(saved);
       currentRole = currentUser.role || 'owner';
-      initApp(); return;
+      sessionToken = currentUser.session_token || null;
+      if (!sessionToken) { sessionStorage.removeItem('bt_user'); }
+      else { initApp(); return; }
     } catch(e) { sessionStorage.removeItem('bt_user'); }
   }
   // show PIN screen (already visible by default)
