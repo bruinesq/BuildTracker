@@ -211,6 +211,8 @@ input,textarea,select{font-family:inherit;font-size:15px;border:none;outline:non
 .modal-title{font-size:16px;font-weight:700;color:#fff;}
 .modal-close{color:rgba(255,255,255,0.7);font-size:24px;line-height:1;padding:2px 6px;}
 .modal-body{padding:16px;display:flex;flex-direction:column;gap:13px;}
+.modal-body.tinted{background:var(--amber-lt);}
+.modal-body.tinted .field-input{background:var(--white);}
 
 /* ── FORM ELEMENTS ── */
 .field{display:flex;flex-direction:column;gap:5px;}
@@ -247,7 +249,7 @@ textarea.field-input{resize:vertical;min-height:72px;}
 .key.kcancel{grid-column:span 2;background:var(--red-lt);border-color:rgba(192,57,43,0.3);}
 .key.kcancel .knum{color:var(--red);font-size:14px;font-weight:700;}
 .key.kaccept{background:var(--green-lt);border-color:rgba(26,122,64,0.3);}
-.key.kaccept .knum{color:var(--green);font-size:22px;}
+.key.kaccept .knum{color:var(--green);font-size:15px;font-weight:700;}
 
 /* ── CALENDAR PICKER ── */
 .cal-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:4px;}
@@ -864,6 +866,7 @@ function buildProjectForm(p) {
 async function openAddProject() {
   editingId = null;
   document.getElementById('modal-title').textContent = 'New Project';
+  document.getElementById('modal-body').className = 'modal-body';
   document.getElementById('modal-body').innerHTML = buildProjectForm(null) + `
     <button class="btn-save" onclick="saveProject(false)">Add Project</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
@@ -875,6 +878,7 @@ async function openEditProject() {
   if (!p) { toast('No project selected'); return; }
   editingId = p.id;
   document.getElementById('modal-title').textContent = 'Edit Project';
+  document.getElementById('modal-body').className = 'modal-body';
   document.getElementById('modal-body').innerHTML = buildProjectForm(p) + `
     <button class="btn-save" onclick="saveProject(true)">Save Changes</button>
     <button class="btn-cancel-form" onclick="closeModal()">Cancel</button>`;
@@ -1262,11 +1266,16 @@ function openPayModal(prefillVendorId = null, prefillPayment = null) {
   const isDuePaid   = !p || !p.is_due;   // true = paid, false = due
   const method      = p?.method || 'Check';
 
+  document.getElementById('modal-body').className = 'modal-body tinted';
   document.getElementById('modal-body').innerHTML = `
     <div class="field"><div class="field-lbl">Payee (from Vendors)</div>
-      <select class="field-input" id="fp-vendor"><option value="">— Select Vendor / Sub —</option>${vOptions}</select></div>
+      <select class="field-input" id="fp-vendor" onchange="toggleAddVendorRow()"><option value="">— Select Vendor / Sub —</option>${vOptions}</select></div>
     <div class="field"><div class="field-lbl">Or Quick Name (if not in list)</div>
-      <input class="field-input" id="fp-payee" value="${esc(p?.payee_name||'')}" placeholder="Payee name"></div>
+      <input class="field-input" id="fp-payee" value="${esc(p?.payee_name||'')}" placeholder="Payee name" oninput="toggleAddVendorRow()">
+      <label id="fp-addvendor-row" style="display:${p?.payee_name ? 'flex' : 'none'};align-items:center;gap:6px;margin-top:7px;font-size:12px;color:var(--muted);">
+        <input type="checkbox" id="fp-addvendor" style="width:16px;height:16px;accent-color:var(--amber);">
+        Also add this payee to your Vendor list
+      </label></div>
     <div class="field"><div class="field-lbl">Amount ($)</div>
       <div class="field-input tap-to-edit" id="fp-amount-disp" onclick="openKP('fp-amount-disp','fp-amount-val')">${amtDisplay}</div>
       <input type="hidden" id="fp-amount-val" value="${amtVal}">
@@ -1291,14 +1300,14 @@ function openPayModal(prefillVendorId = null, prefillPayment = null) {
       </div>
       <input type="hidden" id="fp-is-due" value="${isDuePaid ? 'false' : 'true'}"></div>
     <div class="field-row2">
-      <div class="field"><div class="field-lbl">Payment Date</div>
-        <div class="field-input" id="fp-paydate-disp" onclick="openCal('fp-paydate-disp','fp-paydate-val')">${fmtDateShort(payDateVal)}</div>
-        <input type="hidden" id="fp-paydate-val" value="${payDateVal}">
-        <div id="cal-fp-paydate-disp" class="cal-wrap hidden"></div></div>
       <div class="field"><div class="field-lbl">Invoice Date</div>
         <div class="field-input" id="fp-invdate-disp" onclick="openCal('fp-invdate-disp','fp-invdate-val')">${fmtDateShort(invDateVal)}</div>
         <input type="hidden" id="fp-invdate-val" value="${invDateVal}">
         <div id="cal-fp-invdate-disp" class="cal-wrap hidden"></div></div>
+      <div class="field"><div class="field-lbl">Payment/Due Date</div>
+        <div class="field-input" id="fp-paydate-disp" onclick="openCal('fp-paydate-disp','fp-paydate-val')">${fmtDateShort(payDateVal)}</div>
+        <input type="hidden" id="fp-paydate-val" value="${payDateVal}">
+        <div id="cal-fp-paydate-disp" class="cal-wrap hidden"></div></div>
     </div>
     <div class="field"><div class="field-lbl">Invoice Number</div>
       <input class="field-input" id="fp-inv" value="${esc(p?.invoice_number||'')}" placeholder="e.g. PP-2024"></div>
@@ -1318,6 +1327,14 @@ function openPayModal(prefillVendorId = null, prefillPayment = null) {
   openModal();
 }
 
+function toggleAddVendorRow() {
+  const row = document.getElementById('fp-addvendor-row');
+  const vendorSelected = !!v('fp-vendor');
+  const hasQuickName = !!v('fp-payee').trim();
+  if (row) row.style.display = (!vendorSelected && hasQuickName) ? 'flex' : 'none';
+  if (vendorSelected && document.getElementById('fp-addvendor')) document.getElementById('fp-addvendor').checked = false;
+}
+
 async function savePayment() {
   const pid = projects[currentProjectIdx]?.id;
   const vendorId = v('fp-vendor') || null;
@@ -1332,9 +1349,21 @@ async function savePayment() {
   const method = v('fp-method') || 'Check';
   const note = v('fp-note');
   if (!vendorId && !payeeName) { toast('Select a vendor or enter a payee name'); return; }
+
+  // If the "Also add this payee to your Vendor list" toggle is checked,
+  // create the vendor first so this payment links to a real vendor_id
+  // instead of just a free-text payee name.
+  let finalVendorId = vendorId;
+  const shouldAddVendor = !vendorId && payeeName && document.getElementById('fp-addvendor')?.checked;
+  if (shouldAddVendor) {
+    const { data: vData, error: vErr } = await dataCall('insert', { table: 'vendors', row: { project_id: pid, name: payeeName } });
+    if (vErr) { toast('Could not add vendor: ' + vErr.message); return; }
+    if (vData && vData.length) { finalVendorId = vData[0].id; vendors.push(vData[0]); }
+  }
+
   // Core payment data — always safe to write
   const baseRow = {
-    project_id: pid, vendor_id: vendorId, payee_name: payeeName,
+    project_id: pid, vendor_id: finalVendorId, payee_name: payeeName,
     amount, paid_by: paidBy, is_due: isDue,
     payment_date: payDate, invoice_date: invDate,
     invoice_number: inv, method, note,
@@ -1378,6 +1407,7 @@ function openAdvanceModal() {
   editingId = null;
   document.getElementById('modal-title').textContent = 'Record Advance to Contractor';
   const today = todayStr();
+  document.getElementById('modal-body').className = 'modal-body';
   document.getElementById('modal-body').innerHTML = `
     <div class="field" style="background:var(--amber-lt);border-radius:var(--radius-sm);padding:10px 12px;">
       <div style="font-size:12px;color:#7A4A00;line-height:1.5;">This logs a lump-sum advance paid by Owner to Contractor. The amount becomes available as a draw-down balance the Contractor can use to pay vendors on Owner's behalf.</div>
@@ -1438,6 +1468,7 @@ function openVendorModal(prefillId = null) {
   const existing = prefillId ? vendors.find(v => v.id === prefillId) : null;
   document.getElementById('modal-title').textContent = existing ? 'Edit Vendor' : 'Add Vendor';
   if (existing) editingId = existing.id;
+  document.getElementById('modal-body').className = 'modal-body tinted';
   document.getElementById('modal-body').innerHTML = `
     <div class="field"><div class="field-lbl">Company / Vendor Name</div>
       <input class="field-input" id="fv-name" value="${esc(existing?.name||'')}" placeholder="Company or person name"></div>
@@ -1489,6 +1520,7 @@ function openSchedModal(prefillId = null) {
   const vOpts = vendors.map(v => `<option value="${v.id}" ${existing?.vendor_id === v.id ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
   const statusOpts = ['scheduled','confirmed','in-progress','completed','cancelled'].map(s =>
     `<option value="${s}" ${existing?.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
+  document.getElementById('modal-body').className = 'modal-body tinted';
   document.getElementById('modal-body').innerHTML = `
     <div class="field"><div class="field-lbl">Contractor / Sub</div>
       <select class="field-input" id="fe-vendor"><option value="">— Select —</option>${vOpts}</select></div>
@@ -1704,7 +1736,7 @@ function openPayPanel(id) {
   document.getElementById('panel-body').innerHTML = `
     <div class="panel-row"><div class="panel-lbl">Amount</div><div class="panel-val" style="font-size:22px;font-weight:700;color:var(--amber);">${fmtMoney(p.amount)}</div></div>
     <div class="panel-row"><div class="panel-lbl">Status</div><div class="panel-val">${badge}</div></div>
-    <div class="panel-row"><div class="panel-lbl">Payment Date</div><div class="panel-val">${fmtDateShort(p.payment_date)}</div></div>
+    <div class="panel-row"><div class="panel-lbl">Payment/Due Date</div><div class="panel-val">${fmtDateShort(p.payment_date)}</div></div>
     <div class="panel-row"><div class="panel-lbl">Invoice Date</div><div class="panel-val">${fmtDateShort(p.invoice_date)}</div></div>
     <div class="panel-row"><div class="panel-lbl">Invoice #</div><div class="panel-val">${esc(p.invoice_number || '—')}</div></div>
     <div class="panel-row"><div class="panel-lbl">Method</div><div class="panel-val">${esc(p.method || '—')}</div></div>
@@ -1931,7 +1963,7 @@ function buildKP() {
     <div class="key kop" data-kv="back"><span class="knum">&#x232B;</span></div>
     <div class="key kop" data-kv="-"><span class="knum">&minus;</span></div>
     <div class="key kop" data-kv="."><span class="knum">.</span></div>
-    <div class="key kaccept" data-kv="accept"><span class="knum">&#x2713;</span></div>
+    <div class="key kaccept" data-kv="accept"><span class="knum">Enter</span></div>
     <div class="key kcancel" data-kv="cancel"><span class="knum">&#x2715; Cancel</span></div>
     <div class="key kop" data-kv="="><span class="knum">=</span></div>
   </div>`;
