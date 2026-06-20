@@ -1608,8 +1608,12 @@ async function loadDocsBrowser() {
     const { entries } = await dropboxCall('browse', { path: docsTarget.path });
     renderDocsEntries(entries);
   } catch (e) {
+    const unlinkBtn = docsTarget.mode === 'browse'
+      ? `<button class="btn-cancel-form" style="margin-top:8px;" onclick="changeDocsFolder()">Unlink this folder and pick again</button>`
+      : '';
     wrap.innerHTML = `<div class="empty-state"><p style="color:var(--red);">${esc(e.message)}</p></div>
-      <button class="btn-cancel-form" onclick="closePanel();showTab('settings')">Check Dropbox connection in Settings</button>`;
+      <button class="btn-cancel-form" onclick="closePanel();showTab('settings')">Check Dropbox connection in Settings</button>
+      ${unlinkBtn}`;
   }
 }
 
