@@ -1525,8 +1525,15 @@ function openSchedModal(prefillId = null) {
   document.getElementById('modal-body').className = 'modal-body tinted';
   document.getElementById('modal-body').innerHTML = `
     <div class="field"><div class="field-lbl">Contractor / Sub</div>
-      <select class="field-input" id="fe-vendor"><option value="">— Select —</option>${vOpts}</select></div>
-    <div class="field"><div class="field-lbl">Or Name</div><input class="field-input" id="fe-name" value="${esc(existing?.name||'')}" placeholder="Name or company"></div>
+      <select class="field-input" id="fe-vendor" onchange="toggleSchedAddVendorRow()"><option value="">— Select —</option>${vOpts}</select></div>
+    <div class="field"><div class="field-lbl">Or Name</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input class="field-input" id="fe-name" style="flex:1;min-width:0;" value="${esc(existing?.name||'')}" placeholder="Name or company" oninput="toggleSchedAddVendorRow()">
+        <label id="fe-addvendor-row" style="display:${(existing?.name && !existing?.vendor_id) ? 'flex' : 'none'};align-items:center;gap:5px;font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;">
+          <input type="checkbox" id="fe-addvendor" style="width:16px;height:16px;accent-color:var(--amber);flex-shrink:0;">
+          Add vendor
+        </label>
+      </div></div>
     <div class="field"><div class="field-lbl">Trade / Work Type</div><input class="field-input" id="fe-trade" value="${esc(existing?.trade||'')}" placeholder="e.g. Plumbing, Framing"></div>
     <div class="field-row2">
       <div class="field"><div class="field-lbl">Start Date</div>
@@ -1546,11 +1553,31 @@ function openSchedModal(prefillId = null) {
   openModal();
 }
 
+function toggleSchedAddVendorRow() {
+  const row = document.getElementById('fe-addvendor-row');
+  const vendorSelected = !!v('fe-vendor');
+  const hasName = !!v('fe-name').trim();
+  if (row) row.style.display = (!vendorSelected && hasName) ? 'flex' : 'none';
+  if (vendorSelected && document.getElementById('fe-addvendor')) document.getElementById('fe-addvendor').checked = false;
+}
+
 async function saveSchedEvent() {
   const pid = projects[currentProjectIdx]?.id;
-  const vendorId = v('fe-vendor') || null;
-  const vendorName = vendorId ? (vendors.find(x => x.id === vendorId)?.name || '') : v('fe-name');
-  const row = { project_id: pid, vendor_id: vendorId, name: vendorName || v('fe-name'), trade: v('fe-trade'), event_date: v('fe-start-val'), end_date: v('fe-end-val'), status: v('fe-status') || 'scheduled', note: v('fe-note') };
+  let vendorId = v('fe-vendor') || null;
+  const quickName = v('fe-name');
+  const vendorName = vendorId ? (vendors.find(x => x.id === vendorId)?.name || '') : quickName;
+  if (!vendorName && !quickName) { toast('Name required'); return; }
+
+  // If "Add vendor" is checked, create the vendor first so this event
+  // links to a real vendor_id instead of just a free-text name.
+  const shouldAddVendor = !vendorId && quickName && document.getElementById('fe-addvendor')?.checked;
+  if (shouldAddVendor) {
+    const { data: vData, error: vErr } = await dataCall('insert', { table: 'vendors', row: { project_id: pid, name: quickName } });
+    if (vErr) { toast('Could not add vendor: ' + vErr.message); return; }
+    if (vData && vData.length) { vendorId = vData[0].id; vendors.push(vData[0]); }
+  }
+
+  const row = { project_id: pid, vendor_id: vendorId, name: vendorName || quickName, trade: v('fe-trade'), event_date: v('fe-start-val'), end_date: v('fe-end-val'), status: v('fe-status') || 'scheduled', note: v('fe-note') };
   if (!row.name) { toast('Name required'); return; }
   if (editingId) { await dataCall('update', { table: 'schedule_events', id: editingId, patch: row }); toast('Event updated'); }
   else { await dataCall('insert', { table: 'schedule_events', row }); toast('Event scheduled'); }
