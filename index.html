@@ -570,7 +570,8 @@ textarea.field-input{resize:vertical;min-height:72px;}
       </div>
       <div class="card">
         <div class="card-title">Change PIN</div>
-        <div class="field"><div class="field-lbl">New 4-digit PIN</div><input class="field-input" id="new-pin" type="password" maxlength="4" inputmode="numeric" placeholder="Enter new 4-digit PIN"></div>
+        <div class="field"><div class="field-lbl">Current PIN</div><input class="field-input" id="cur-pin" type="password" maxlength="4" inputmode="numeric" placeholder="Enter current 4-digit PIN"></div>
+        <div class="field" style="margin-top:6px;"><div class="field-lbl">New 4-digit PIN</div><input class="field-input" id="new-pin" type="password" maxlength="4" inputmode="numeric" placeholder="Enter new 4-digit PIN"></div>
         <div class="field" style="margin-top:6px;"><div class="field-lbl">Confirm new PIN</div><input class="field-input" id="new-pin2" type="password" maxlength="4" inputmode="numeric" placeholder="Re-enter PIN"></div>
         <button class="btn-save" style="margin-top:10px;" onclick="changePin()">Update PIN</button>
       </div>
@@ -643,6 +644,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const DROPBOX_APP_KEY = 'szbjehvbbm9xk53';
 const DROPBOX_REDIRECT_URI = 'https://bruinesq.github.io/BuildTracker/';
 const DROPBOX_FN_URL = SUPABASE_URL + '/functions/v1/dropbox';
+const AUTH_FN_URL = SUPABASE_URL + '/functions/v1/auth-pin';
 let docsTarget = null; // { vendorId, mode: 'pick'|'browse', path }
 
 // ── STATE ──
@@ -658,10 +660,16 @@ let kpRaw = '0', kpExpr = '', kpHasDot = false;
 // Calendar state (payment modal)
 let calStates = {};
 
-// ── PIN AUTH ──
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+// ── PIN AUTH ── (routed through Edge Function — browser never reads/writes app_users directly)
+async function authCall(action, extra = {}) {
+  const resp = await fetch(AUTH_FN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON },
+    body: JSON.stringify({ action, ...extra }),
+  });
+  const out = await resp.json();
+  if (!resp.ok && resp.status !== 401) throw new Error(typeof out.error === 'string' ? out.error : 'Request failed');
+  return out;
 }
 
 function selectRole(r) {
@@ -693,22 +701,17 @@ async function pinKey(k) {
 
 async function attemptLogin() {
   const errEl = document.getElementById('pin-err');
-  const hash = await sha256(pinBuffer);
+  const pin = pinBuffer;
   try {
-    const { data, error } = await sb
-      .from('app_users')
-      .select('id, display_name, role')
-      .eq('pin_hash', hash)
-      .eq('role', currentRole)
-      .single();
-    if (error || !data) {
+    const out = await authCall('login', { pin, role: currentRole });
+    if (!out.ok || !out.user) {
       renderPinDots(true);
       errEl.textContent = 'Incorrect PIN. Try again.';
       setTimeout(() => { pinBuffer = ''; renderPinDots(); }, 900);
       return;
     }
-    currentUser = data;
-    sessionStorage.setItem('bt_user', JSON.stringify({ ...data, role: currentRole }));
+    currentUser = out.user;
+    sessionStorage.setItem('bt_user', JSON.stringify({ ...out.user, role: currentRole }));
     await initApp();
   } catch(e) {
     errEl.textContent = 'Connection error. Check network.';
@@ -717,16 +720,22 @@ async function attemptLogin() {
 }
 
 async function changePin() {
+  const cur = document.getElementById('cur-pin')?.value || '';
   const p1 = document.getElementById('new-pin')?.value || '';
   const p2 = document.getElementById('new-pin2')?.value || '';
-  if (!/^\d{4}$/.test(p1)) { toast('PIN must be exactly 4 digits'); return; }
-  if (p1 !== p2) { toast('PINs do not match'); return; }
-  const hash = await sha256(p1);
-  const { error } = await sb.from('app_users').update({ pin_hash: hash }).eq('id', currentUser.id);
-  if (error) { toast('Error updating PIN'); return; }
-  document.getElementById('new-pin').value = '';
-  document.getElementById('new-pin2').value = '';
-  toast('PIN updated successfully');
+  if (!/^\d{4}$/.test(cur)) { toast('Enter your current PIN'); return; }
+  if (!/^\d{4}$/.test(p1)) { toast('New PIN must be exactly 4 digits'); return; }
+  if (p1 !== p2) { toast('New PINs do not match'); return; }
+  try {
+    const out = await authCall('change_pin', { user_id: currentUser.id, current_pin: cur, new_pin: p1 });
+    if (!out.ok) { toast(out.error || 'Current PIN is incorrect'); return; }
+    document.getElementById('cur-pin').value = '';
+    document.getElementById('new-pin').value = '';
+    document.getElementById('new-pin2').value = '';
+    toast('PIN updated successfully');
+  } catch(e) {
+    toast('Error: ' + e.message);
+  }
 }
 
 function doLogout() {
