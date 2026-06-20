@@ -584,6 +584,12 @@ textarea.field-input{resize:vertical;min-height:72px;}
         <button class="btn-save" style="margin-top:6px;" onclick="openEditProject()">&#9998; Edit Project Details</button>
       </div>
       <div class="card">
+        <div class="card-title">Dropbox</div>
+        <div id="dropbox-status-row">
+          <div style="font-size:13px;color:var(--muted);">Checking connection…</div>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-title">About</div>
         <div class="panel-row"><div class="panel-lbl">App</div><div class="panel-val">BuildTrack Construction Manager v1.0</div></div>
       </div>
@@ -631,6 +637,13 @@ textarea.field-input{resize:vertical;min-height:72px;}
 const SUPABASE_URL  = 'https://wafmwlfxalrqclzeuzcy.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhZm13bGZ4YWxycWNsemV1emN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTUzNTgsImV4cCI6MjA5NzM3MTM1OH0.R4eqUU9tmSiyB2dujJ0XHazq4F4D08Hg0MfFH_sjhpg';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── DROPBOX CONFIG ── App key is public by design (PKCE/OAuth client id).
+// App secret never appears here — it lives only inside the Edge Function.
+const DROPBOX_APP_KEY = 'szbjehvbbm9xk53';
+const DROPBOX_REDIRECT_URI = 'https://bruinesq.github.io/BuildTracker/';
+const DROPBOX_FN_URL = SUPABASE_URL + '/functions/v1/dropbox';
+let docsTarget = null; // { vendorId, mode: 'pick'|'browse', path }
 
 // ── STATE ──
 let currentUser = null, currentRole = 'owner';
@@ -731,6 +744,8 @@ async function initApp() {
   document.getElementById('settings-role').textContent = (currentUser.role||'').charAt(0).toUpperCase() + (currentUser.role||'').slice(1);
   await loadProjects();
   await loadAll();
+  await handleDropboxOAuthRedirect();
+  renderDropboxStatusRow();
 }
 
 // ── PROJECTS ──
@@ -1467,6 +1482,173 @@ async function saveSchedEvent() {
   closeModal(); await loadAll();
 }
 
+// ── DROPBOX INTEGRATION ──
+async function dropboxCall(action, extra = {}) {
+  const resp = await fetch(DROPBOX_FN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON },
+    body: JSON.stringify({ action, ...extra }),
+  });
+  const out = await resp.json();
+  if (!resp.ok || out.error) throw new Error(typeof out.error === 'string' ? out.error : JSON.stringify(out.error || 'Dropbox request failed'));
+  return out;
+}
+
+function connectDropbox() {
+  const url = 'https://www.dropbox.com/oauth2/authorize'
+    + '?client_id=' + encodeURIComponent(DROPBOX_APP_KEY)
+    + '&response_type=code'
+    + '&token_access_type=offline'
+    + '&redirect_uri=' + encodeURIComponent(DROPBOX_REDIRECT_URI);
+  window.location.href = url;
+}
+
+async function disconnectDropbox() {
+  if (!confirm('Disconnect Dropbox? Vendor folder links will stop working until you reconnect.')) return;
+  try { await dropboxCall('disconnect'); toast('Dropbox disconnected'); renderDropboxStatusRow(); }
+  catch (e) { toast('Error: ' + e.message); }
+}
+
+async function renderDropboxStatusRow() {
+  const row = document.getElementById('dropbox-status-row');
+  if (!row) return;
+  row.innerHTML = '<div style="font-size:13px;color:var(--muted);">Checking connection…</div>';
+  try {
+    const { connected, connected_at } = await dropboxCall('status');
+    if (connected) {
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></span>
+          <span style="font-size:13px;color:var(--text);">Connected${connected_at ? ' · since ' + fmtDateShort(connected_at) : ''}</span>
+        </div>
+        <button class="btn-cancel-form" onclick="disconnectDropbox()">Disconnect Dropbox</button>`;
+    } else {
+      row.innerHTML = `
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Connect once to let vendor Docs panels browse your Dropbox folders directly.</div>
+        <button class="btn-save" onclick="connectDropbox()">Connect Dropbox</button>`;
+    }
+  } catch (e) {
+    row.innerHTML = `<div style="font-size:12px;color:var(--red);">Could not check status: ${esc(e.message)}</div>
+      <button class="btn-save" style="margin-top:8px;" onclick="connectDropbox()">Connect Dropbox</button>`;
+  }
+}
+
+// Called once on boot if the URL contains a Dropbox OAuth ?code= param
+async function handleDropboxOAuthRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return;
+  history.replaceState({}, '', window.location.pathname); // strip ?code= immediately either way
+  try {
+    await dropboxCall('connect', { code });
+    toast('Dropbox connected');
+  } catch (e) {
+    toast('Dropbox connect failed: ' + e.message);
+  }
+}
+
+// ── VENDOR DOCS PANEL (Dropbox folder picker / file browser) ──
+function openDocsPanel(vendorId) {
+  const v2 = vendors.find(x => x.id === vendorId);
+  if (!v2) return;
+  const mode = v2.dropbox_folder_path ? 'browse' : 'pick';
+  docsTarget = { vendorId, mode, path: v2.dropbox_folder_path || '' };
+  document.getElementById('panel-title').textContent = (mode === 'pick' ? 'Select folder — ' : 'Docs — ') + v2.name;
+  document.getElementById('panel-body').innerHTML = `<div id="docs-browser"><div class="empty-state"><p>Loading…</p></div></div>`;
+  openPanel();
+  loadDocsBrowser();
+}
+
+async function loadDocsBrowser() {
+  const wrap = document.getElementById('docs-browser');
+  if (!wrap || !docsTarget) return;
+  wrap.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  try {
+    const { entries } = await dropboxCall('browse', { path: docsTarget.path });
+    renderDocsEntries(entries);
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-state"><p style="color:var(--red);">${esc(e.message)}</p></div>
+      <button class="btn-cancel-form" onclick="closePanel();showTab('settings')">Check Dropbox connection in Settings</button>`;
+  }
+}
+
+function renderDocsEntries(entries) {
+  const wrap = document.getElementById('docs-browser');
+  if (!wrap || !docsTarget) return;
+  const { vendorId, mode, path } = docsTarget;
+
+  const crumbBar = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+    ${path ? `<div class="icon-btn" onclick="docsGoUp()" title="Up" style="width:30px;height:30px;"><svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></div>` : ''}
+    <div style="font-size:11px;color:var(--muted);word-break:break-all;">${path ? esc(path) : 'Dropbox (root)'}</div>
+  </div>`;
+
+  const pickBtn = mode === 'pick'
+    ? `<button class="btn-save" style="margin-bottom:10px;" onclick="pickThisFolder()">&#10003; Use this folder for this vendor</button>`
+    : `<button class="btn-cancel-form" style="margin-bottom:10px;" onclick="changeDocsFolder()">Change linked folder</button>`;
+
+  if (!entries.length) {
+    wrap.innerHTML = crumbBar + pickBtn + '<div class="empty-state"><p>This folder is empty.</p></div>';
+    return;
+  }
+
+  const rows = entries.map(e => {
+    if (e.type === 'folder') {
+      return `<div class="vendor-item" onclick="docsOpenFolder('${escAttrJs(e.path)}')">
+        <div class="vendor-avatar" style="background:var(--amber-lt);color:var(--amber);">📁</div>
+        <div class="vendor-info"><div class="vendor-name">${esc(e.name)}</div></div>
+        <div class="vendor-chev">›</div>
+      </div>`;
+    }
+    const fileAction = mode === 'browse' ? `onclick="docsOpenFile('${escAttrJs(e.path)}')"` : '';
+    return `<div class="vendor-item" ${fileAction} style="${mode === 'pick' ? 'opacity:0.55;' : ''}">
+      <div class="vendor-avatar" style="background:var(--surface);color:var(--muted);">📄</div>
+      <div class="vendor-info"><div class="vendor-name">${esc(e.name)}</div>${e.modified ? `<div class="vendor-trade">${fmtDateShort(e.modified)}</div>` : ''}</div>
+      ${mode === 'browse' ? '<div class="vendor-chev">↗</div>' : ''}
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = crumbBar + pickBtn + rows;
+}
+
+function docsOpenFolder(path) {
+  docsTarget.path = path;
+  loadDocsBrowser();
+}
+
+function docsGoUp() {
+  const parts = docsTarget.path.split('/').filter(Boolean);
+  parts.pop();
+  docsTarget.path = parts.length ? '/' + parts.join('/') : '';
+  loadDocsBrowser();
+}
+
+async function pickThisFolder() {
+  const { vendorId, path } = docsTarget;
+  if (!path) { toast('Pick a specific vendor folder, not the Dropbox root'); return; }
+  const { error } = await sb.from('vendors').update({ dropbox_folder_path: path }).eq('id', vendorId);
+  if (error) { toast('Save failed: ' + error.message); return; }
+  const vIdx = vendors.findIndex(x => x.id === vendorId);
+  if (vIdx >= 0) vendors[vIdx].dropbox_folder_path = path;
+  toast('Folder linked');
+  docsTarget.mode = 'browse';
+  loadDocsBrowser();
+}
+
+function changeDocsFolder() {
+  docsTarget.mode = 'pick';
+  docsTarget.path = '';
+  loadDocsBrowser();
+}
+
+async function docsOpenFile(path) {
+  try {
+    const { url } = await dropboxCall('link', { path });
+    window.open(url, '_blank');
+  } catch (e) {
+    toast('Could not open file: ' + e.message);
+  }
+}
+
 // ── PANELS ──
 function openPayPanel(id) {
   const p = payments.find(x => x.id === id);
@@ -1569,6 +1751,7 @@ function openVendorPanel(id) {
       <button class="panel-edit-btn" onclick="closePanel();openVendorModal('${id}')">&#9998; Edit</button>
       <button class="panel-del-btn" onclick="deleteRecord('vendors','${id}')">Delete</button>
     </div>
+    <button class="btn-cancel-form" style="margin-top:8px;" onclick="openDocsPanel('${id}')">&#128193; Docs${v2.dropbox_folder_path ? '' : ' — not linked yet'}</button>
     <button class="btn-save" style="margin-top:10px;" onclick="closePanel();openPayModal('${id}')">+ Make Payment to ${esc(v2.name)}</button>`;
   openPanel();
 }
@@ -1967,6 +2150,7 @@ function v(id) { const el = document.getElementById(id); return el ? el.value : 
 function gv(id) { return v(id); }
 function setInputVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttrJs(s) { return esc(String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 function fmtMoney(n) { return '$' + (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 // Sets formatted money text on an element, auto-shrinking the font (via .shrink class)
